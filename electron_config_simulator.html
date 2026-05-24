@@ -1,0 +1,3519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電子配置シミュレーター</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@600;700;900&display=swap');
+
+:root {
+  --bg: #07090f;
+  --surface: #0d1220;
+  --surface2: #131a2e;
+  --border: #1e2d4a;
+  --text: #e8f0ff;
+  --muted: #6a85a8;
+  --accent: #4fc3f7;
+  --proton: #ff6b8a;
+  --electron: #ffd166;
+  --glow-e: rgba(255,209,102,0.5);
+  --correct: #69f0ae;
+  --wrong: #ff5252;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content:'';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,195,247,0.05) 0%, transparent 60%),
+    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 15%, rgba(255,255,255,0.08) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 70%, rgba(255,255,255,0.07) 0%, transparent 100%);
+  pointer-events: none; z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 24px 20px 12px;
+  position: relative; z-index: 1;
+}
+
+header h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(15px, 3.5vw, 24px);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--accent), #a78bfa, var(--electron));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+
+header p { color: var(--muted); font-size: 11px; }
+
+.app {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 14px 40px;
+  position: relative; z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===== レベル選択モーダル ===== */
+.level-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(7,9,15,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.level-modal.hidden { display: none; }
+
+.level-modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.level-modal-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.level-modal-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.level-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.level-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+  font-family: 'Noto Sans JP', sans-serif;
+  color: var(--text);
+}
+
+.level-option:hover {
+  border-color: var(--accent);
+  background: rgba(79,195,247,0.08);
+}
+
+.level-icon { font-size: 26px; flex-shrink: 0; }
+
+.level-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.level-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ===== タイムアタックモード ===== */
+/* スタート画面・結果画面のフルスクリーンモーダル */
+.ta-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(7,9,15,0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+.ta-modal.visible { display: flex; }
+
+.ta-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.ta-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, var(--accent), #a78bfa, var(--electron));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+}
+.ta-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.ta-rules {
+  text-align: left;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.8;
+}
+.ta-rules .ta-rule-key {
+  color: var(--accent);
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ta-action-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ta-btn {
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ta-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ta-btn.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79,195,247,0.1);
+  font-weight: 700;
+}
+.ta-btn.primary:hover { background: rgba(79,195,247,0.22); }
+
+/* タイムアタック中のHUD：画面上部固定 */
+.ta-hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: rgba(7,9,15,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  z-index: 800;       /* スロットピッカーやフィードバックより上に */
+  padding: 8px 14px 10px;
+  display: none;
+}
+.ta-hud.visible { display: block; }
+
+.ta-hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ta-hud-progress {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.ta-hud-progress .ta-current {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+}
+.ta-hud-score {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ta-hud-score .ta-correct {
+  color: var(--correct);
+  font-weight: 700;
+}
+.ta-cancel-btn {
+  padding: 8px 16px;     /* タップ領域を確保 */
+  border-radius: 8px;
+  border: 1px solid rgba(255,82,82,0.5);
+  background: rgba(255,82,82,0.08);
+  color: var(--wrong);
+  font-size: 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;  /* タップを確実に取る */
+  -webkit-tap-highlight-color: rgba(255,82,82,0.3);
+  position: relative;
+  z-index: 1;
+}
+.ta-cancel-btn:hover, .ta-cancel-btn:active {
+  background: rgba(255,82,82,0.18);
+  border-color: var(--wrong);
+}
+
+/* タイマーバー */
+.ta-timer-bar {
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.ta-timer-fill {
+  position: absolute;
+  inset: 0 100% 0 0;
+  background: linear-gradient(90deg, var(--correct), var(--electron) 60%, var(--wrong));
+  border-radius: 2px;
+  transition: right 0.1s linear;
+}
+.ta-timer-fill.warn {
+  animation: timer-warn 0.4s ease-in-out infinite;
+}
+@keyframes timer-warn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* タイムアタック中はHUDの分だけページを下に押す */
+body.ta-active { padding-top: 56px; }
+
+/* タイムアタック中は元素選択リストを完全に隠す。
+   解答中は同じ画面に固定したいため(問題ごとに画面が動かない)、
+   かつ別の元素にジャンプできないようにするため。 */
+body.ta-active .element-scroll-wrap {
+  display: none;
+}
+
+/* タイムアタック中はページ全体の縦スクロールをロック。
+   ボタンタップ時の iOS Safari の自動スクロール挙動や、
+   DOM変化に伴う再レイアウトでの予期せぬスクロールを完全に防止する。
+   結果モーダルなどはposition:fixedなのでoverflow:hidden下でも正しく動く。 */
+html.ta-locked,
+body.ta-active {
+  overflow: hidden;
+  height: 100%;
+  -webkit-overflow-scrolling: auto;
+}
+
+/* タイムアタック中は「電子配置の表記」と「上級者向け」セクションも非表示にして、
+   ボーアモデル＋殻コントロール＋確認ボタンだけで画面が完結するようにする。
+   これにより小さい画面の端末でもスクロール不要でプレイ可能。 */
+body.ta-active .config-display,
+body.ta-active .advanced-toggle {
+  display: none;
+}
+
+/* タイムアタック中はアプリタイトル(<header>)も非表示。
+   画面上部にHUDが固定されており、タイトルの存在意義は薄く、
+   その分のスペースを操作領域に回したい。 */
+body.ta-active header {
+  display: none;
+}
+
+/* タイムアタック中は本文コンテナの上下paddingを縮める。
+   ボーアモデル＋殻コントロール＋確認ボタンを縦方向に詰めて、
+   小さい画面端末でも確認ボタンが下端に収まるように。 */
+body.ta-active .app {
+  padding-bottom: 8px;
+  gap: 6px;
+}
+body.ta-active .bohr-area {
+  padding: 6px 10px 8px;
+  gap: 4px;
+}
+/* インライン元素記号バッジの上下paddingも詰める */
+body.ta-active .inline-element-badge {
+  padding: 4px 12px;
+}
+/* ボーアモデル自体はJS座標が220前提なので、transform:scaleで見た目だけ縮める。
+   transform-originを中心にすることで、原子核位置がぶれない。 */
+body.ta-active .bohr-model {
+  transform: scale(0.85);
+  transform-origin: center center;
+  margin: -16px 0;  /* scaleで縮んだ分の隙間を回収 */
+}
+/* タイトル行(▸ボーアモデル + 次へボタン)も、タイムアタック中は非表示。
+   HUDで進行状況が見えており、ユーザーが手動で次に進む必要もないため。 */
+body.ta-active .bohr-title-row {
+  display: none;
+}
+
+/* タイムアタック中はホイールピッカーをやや縦に圧縮して、画面に確認ボタンまで収める。
+   140px → 110px。中央枠は維持しつつ上下の数字を見せる範囲を縮める。 */
+body.ta-active .shell-count {
+  height: 110px;
+}
+
+/* 結果画面の問題リスト */
+.ta-result-stats {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 14px 0;
+}
+.ta-stat {
+  text-align: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 80px;
+}
+.ta-stat-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--accent);
+}
+.ta-stat-val.correct { color: var(--correct); }
+.ta-stat-val.wrong { color: var(--wrong); }
+.ta-stat-label {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+.ta-result-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  margin: 14px 0;
+}
+.ta-result-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.ta-result-cell.correct {
+  background: rgba(105,240,174,0.1);
+  border-color: rgba(105,240,174,0.4);
+  color: var(--correct);
+}
+.ta-result-cell.wrong {
+  background: rgba(255,82,82,0.08);
+  border-color: rgba(255,82,82,0.4);
+  color: var(--wrong);
+}
+.ta-result-cell.timeout {
+  background: rgba(255,209,102,0.08);
+  border-color: rgba(255,209,102,0.4);
+  color: var(--electron);
+}
+.ta-result-cell .ta-cell-z {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* タイムアタック判定オーバーレイ：問題切り替え時の一瞬の結果表示 */
+.ta-flash {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.7);
+  padding: 16px 32px;
+  border-radius: 14px;
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  z-index: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ta-flash.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.ta-flash.correct {
+  background: rgba(105,240,174,0.15);
+  border: 2px solid var(--correct);
+  color: var(--correct);
+}
+.ta-flash.wrong {
+  background: rgba(255,82,82,0.15);
+  border: 2px solid var(--wrong);
+  color: var(--wrong);
+}
+.ta-flash.timeout {
+  background: rgba(255,209,102,0.15);
+  border: 2px solid var(--electron);
+  color: var(--electron);
+}
+
+/* ===== チュートリアル ===== */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  display: none;
+}
+
+.tutorial-overlay.active { display: block; }
+
+.tutorial-spotlight {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 9999px rgba(7,9,15,0.78),
+    0 0 0 3px var(--accent),
+    0 0 20px rgba(79,195,247,0.6);
+  background: transparent;
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.tutorial-spotlight.visible { opacity: 1; }
+
+.tutorial-spotlight.guide-mode {
+  opacity: 0;
+}
+
+.tutorial-overlay.guide-mode::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(7,9,15,0.35);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bohr-model.guide-highlight {
+  animation: model-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes model-pulse {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
+  50%       { filter: brightness(1.15) drop-shadow(0 0 18px rgba(79,195,247,0.6)); }
+}
+
+.orbit-ring.guide-highlight {
+  border-color: var(--electron) !important;
+  border-style: solid !important;
+  border-width: 3px !important;
+  animation: ring-glow 1.5s ease-in-out infinite;
+}
+
+.tutorial-spotlight.hide-frame {
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 9999px rgba(7,9,15,0.78);
+}
+
+.tutorial-spotlight.hide-frame::after { opacity: 0 !important; }
+
+.tutorial-spotlight::after {
+  content: '👆';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  font-size: 24px;
+  animation: tap-bounce 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px var(--accent));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.tutorial-spotlight.show-pointer::after { opacity: 1; }
+
+@keyframes tap-bounce {
+  0%, 100% { transform: translate(-50%, 4px); }
+  50%       { transform: translate(-50%, 12px); }
+}
+
+.tutorial-target {
+  position: relative;
+  z-index: 1001 !important;
+  pointer-events: auto !important;
+}
+
+.orbit-ring.tutorial-target {
+  border-color: var(--electron) !important;
+  border-style: solid !important;
+  border-width: 3px !important;
+  box-shadow:
+    0 0 16px rgba(255,209,102,0.8),
+    0 0 32px rgba(255,209,102,0.4),
+    inset 0 0 16px rgba(255,209,102,0.3);
+  animation: ring-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes ring-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 16px rgba(255,209,102,0.8),
+      0 0 32px rgba(255,209,102,0.4),
+      inset 0 0 16px rgba(255,209,102,0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(255,209,102,1),
+      0 0 48px rgba(255,209,102,0.6),
+      inset 0 0 24px rgba(255,209,102,0.5);
+  }
+}
+
+.tutorial-target::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  pointer-events: none;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79,195,247,0.6); }
+  50%       { box-shadow: 0 0 0 8px rgba(79,195,247,0); }
+}
+
+/* ===== チュートリアル中のボタン制限 =====
+   初級チュートリアル(イントロ)中は、現在のステップで押すべきボタン以外を無効化する。
+   想定外のボタンが押されてエラー状態に陥り、リカバリーできなくなるのを防ぐため。
+   .tutorial-allowed が付いた要素のみ操作可、それ以外は半透明＋クリック無効。 */
+body.tutorial-locked .ctrl-btn,
+body.tutorial-locked .shell-closed-btn,
+body.tutorial-locked .action-btn,
+body.tutorial-locked .title-btn,
+body.tutorial-locked .el-btn {
+  pointer-events: none;
+  opacity: 0.35;
+  filter: saturate(0.4);
+  transition: opacity 0.2s, filter 0.2s;
+}
+
+body.tutorial-locked .tutorial-allowed {
+  pointer-events: auto;
+  opacity: 1;
+  filter: none;
+}
+
+.tutorial-tooltip {
+  position: fixed;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  pointer-events: auto;
+  font-family: 'Noto Sans JP', sans-serif;
+  transition: opacity 0.5s ease;
+  opacity: 0;
+}
+
+.tutorial-tooltip.visible { opacity: 1; }
+.tutorial-tooltip.faded { opacity: 0.04; pointer-events: none; }
+.tutorial-tooltip.faded:hover,
+.tutorial-tooltip.faded:active { opacity: 1; pointer-events: auto; }
+
+.tutorial-pulse-btn {
+  animation: btn-pulse 1.4s ease-in-out infinite;
+  position: relative;
+  z-index: 100;
+}
+
+@keyframes btn-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(79,195,247,0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(79,195,247,0);
+    transform: scale(1.08);
+  }
+}
+
+.tutorial-step {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.tutorial-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.tutorial-text {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tutorial-skip {
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+
+.tutorial-skip:hover { color: var(--text); }
+
+.tutorial-next {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: rgba(79,195,247,0.1);
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+}
+
+.tutorial-next:hover { background: rgba(79,195,247,0.2); }
+
+/* ===== 元素選択（横スクロール一段） ===== */
+.element-scroll-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.scroll-arrow {
+  position: absolute;
+  top: 50%;
+  width: 36px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 18px;
+  color: var(--accent);
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: linear-gradient(to right, transparent, var(--surface) 70%);
+}
+
+.scroll-arrow.left {
+  left: 0;
+  border-radius: 0 0 0 14px;
+  background: linear-gradient(to left, transparent, var(--surface) 70%);
+  justify-content: flex-start;
+  padding-left: 6px;
+  transform: translateY(-30%);
+}
+
+.scroll-arrow.right {
+  right: 0;
+  border-radius: 0 0 14px 0;
+  justify-content: flex-end;
+  padding-right: 6px;
+  transform: translateY(-30%);
+}
+
+.scroll-arrow.show { opacity: 1; animation: arrow-bounce 1.6s ease-in-out infinite; }
+
+@keyframes arrow-bounce {
+  0%, 100% { transform: translateY(-30%) translateX(0); }
+  50%       { transform: translateY(-30%) translateX(4px); }
+}
+
+.scroll-arrow.left.show { animation: arrow-bounce-left 1.6s ease-in-out infinite; }
+
+@keyframes arrow-bounce-left {
+  0%, 100% { transform: translateY(-30%) translateX(0); }
+  50%       { transform: translateY(-30%) translateX(-4px); }
+}
+
+.selector-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.element-scroll {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.element-scroll::-webkit-scrollbar { height: 3px; }
+.element-scroll::-webkit-scrollbar-track { background: transparent; }
+.element-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.el-btn {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px; height: 50px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.el-btn:hover { border-color: var(--accent); transform: scale(1.06); }
+
+.el-btn.active {
+  border-color: var(--accent);
+  background: rgba(79,195,247,0.1);
+  box-shadow: 0 0 10px rgba(79,195,247,0.2);
+}
+
+.el-btn .el-z  { font-family:'Orbitron',monospace; font-size:7px; color:var(--muted); line-height:1; }
+.el-btn .el-sym { font-family:'Noto Serif JP', serif; font-size:18px; font-weight:700; line-height:1.05; letter-spacing:-0.01em; }
+.el-btn .el-name { font-size:6px; color:var(--muted); }
+
+/* ===== 原子核 ===== */
+.nucleus-display {
+  text-align: center;
+  padding: 4px 0;
+}
+
+.nucleus-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Noto Serif JP', serif;
+  font-weight: 900;
+  padding: 10px 32px 12px;
+  border-radius: 40px;
+  background: rgba(255,107,138,0.06);
+  border: 2px solid rgba(255,107,138,0.35);
+  box-shadow: 0 0 20px rgba(255,107,138,0.1);
+}
+
+.nucleus-badge .nb-sym {
+  font-size: 38px;
+  line-height: 1;
+}
+
+/* 判定オーバーレイ */
+.feedback-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 50%;
+  background: rgba(7,9,15,0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+  cursor: pointer;
+  z-index: 20;
+  animation: fadeIn 0.25s ease;
+}
+
+.feedback-overlay.show { display: flex; }
+
+.feedback-overlay.correct  { color: var(--correct); border: 2px solid var(--correct); }
+.feedback-overlay.wrong    { color: var(--wrong);   border: 2px solid var(--wrong); }
+.feedback-overlay.info     { color: var(--accent);  border: 2px solid var(--accent); }
+
+.feedback-overlay-msg {
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.feedback-overlay-hint {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.feedback-overlay .action-btn {
+  pointer-events: auto;
+}
+
+/* ===== ボーアモデル＋コントロール ===== */
+.bohr-area {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* スクロール時のオフセット用：ヘッダーぶん少し下に余白を取って画面内に収める */
+  scroll-margin-top: 12px;
+}
+
+.inline-element-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 30px;
+  background: rgba(255,107,138,0.06);
+  border: 1.5px solid rgba(255,107,138,0.3);
+}
+
+.ieb-z {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ieb-sym {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  background: var(--ieb-grad, linear-gradient(135deg, #7eb8f7, #a8ff78));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ieb-name {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.bohr-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.title-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.title-btn:hover { border-color: var(--accent); color: var(--accent); }
+.title-btn.primary { border-color: var(--accent); color: var(--accent); background: rgba(79,195,247,0.08); }
+.title-btn.primary:hover { background: rgba(79,195,247,0.18); }
+
+.bohr-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.bohr-model {
+  position: relative;
+  width: 220px; height: 220px;
+  flex-shrink: 0;
+}
+
+.orbit-ring {
+  position: absolute;
+  border-radius: 50%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: border-color 0.2s;
+}
+
+.shell-label {
+  position: absolute;
+  font-family: 'Orbitron', monospace;
+  font-size: 8px;
+  color: rgba(79,195,247,0.45);
+  pointer-events: none;
+}
+
+.e-dot {
+  position: absolute;
+  width: 11px; height: 11px;
+  background: var(--electron);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--glow-e), 0 0 12px var(--glow-e);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+
+.nucleus-core {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8fa3, #c9184a);
+  box-shadow: 0 0 14px rgba(255,107,138,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 900;
+  color: white;
+  text-align: center;
+  line-height: 1.2;
+  z-index: 3;
+}
+
+/* ===== 殻コントロール ===== */
+.shell-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+}
+
+.shell-ctrl-row {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 4px;
+  min-width: 0;
+}
+
+.shell-ctrl-name {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.shell-ctrl-sublabel {
+  font-size: 8px;
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* スロットマシン風ホイールピッカー：上下スワイプで電子数を増減する。
+   ボタンは廃止し、ホイール自体を大きくして指で操作しやすく。
+   3〜5行ぶんの数字が縦に並んで見え、中央のハイライト枠に現在値が来る。 */
+.shell-count {
+  position: relative;
+  width: 100%;
+  max-width: 84px;
+  height: 140px;            /* スロットの縦サイズ：3行(各40px)+α */
+  margin: 2px auto;
+  overflow: hidden;
+  border-radius: 10px;
+  /* メタリック感のあるスロット背景 */
+  background:
+    linear-gradient(to bottom,
+      rgba(7,9,15,0.95) 0%,
+      rgba(15,22,45,0.6) 20%,
+      rgba(20,30,55,0.4) 50%,
+      rgba(15,22,45,0.6) 80%,
+      rgba(7,9,15,0.95) 100%);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 4px 8px rgba(0,0,0,0.5),
+    inset 0 -4px 8px rgba(0,0,0,0.5);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.shell-count:active { cursor: grabbing; }
+
+.shell-count.dragging {
+  border-color: var(--electron);
+  box-shadow:
+    inset 0 4px 8px rgba(0,0,0,0.5),
+    inset 0 -4px 8px rgba(0,0,0,0.5),
+    0 0 0 2px rgba(255,209,102,0.35);
+}
+
+/* 中央ハイライト枠：現在値の表示位置を強調 */
+.shell-count::after {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px;
+  top: 50%;
+  height: 40px;
+  margin-top: -20px;
+  border-top: 1.5px solid rgba(255,209,102,0.6);
+  border-bottom: 1.5px solid rgba(255,209,102,0.6);
+  background: rgba(255,209,102,0.06);
+  pointer-events: none;
+  z-index: 3;
+  border-radius: 4px;
+}
+
+/* 上下のフェード(中央以外を暗くしてスロット感を出す) */
+.shell-count::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(7,9,15,0.95) 0%,
+    rgba(7,9,15,0.55) 18%,
+    transparent 38%,
+    transparent 62%,
+    rgba(7,9,15,0.55) 82%,
+    rgba(7,9,15,0.95) 100%
+  );
+  z-index: 2;
+}
+
+/* 数字が並ぶ縦リール */
+.wheel-reel {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;     /* リールのoffsetは translateY で制御。topは中央基準 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 30px;          /* 中央の数字を大きく */
+  font-weight: 900;
+  color: var(--electron);
+  text-shadow: 0 0 8px rgba(255,209,102,0.45);
+  will-change: transform;
+}
+
+.wheel-reel > .wheel-num {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  line-height: 1;
+}
+
+/* 中央以外(上下の数字)は少し小さく薄く(スロット感) */
+.wheel-reel > .wheel-num.dim {
+  color: var(--muted);
+  font-size: 18px;
+  opacity: 0.7;
+  text-shadow: none;
+}
+
+/* スワイプを促すヒントアイコン(初回 hint用、必要に応じてJSで表示) */
+.shell-count .swipe-hint {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 4px;
+  text-align: center;
+  font-size: 9px;
+  color: rgba(255,209,102,0.5);
+  z-index: 4;
+  pointer-events: none;
+  letter-spacing: 0.05em;
+  font-family: 'Orbitron', monospace;
+}
+
+.ctrl-btn {
+  width: 38px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); transform: scale(1.05); }
+.ctrl-btn:active { transform: scale(0.95); }
+
+.ctrl-btn-up { border-color: rgba(255,209,102,0.3); }
+.ctrl-btn-up:hover { border-color: var(--electron); color: var(--electron); }
+
+.shell-closed-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 0;
+  border-radius: 5px;
+  border: 1px solid rgba(168,255,120,0.3);
+  background: rgba(168,255,120,0.05);
+  color: rgba(168,255,120,0.85);
+  font-size: 10px;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.shell-closed-btn:hover {
+  background: rgba(168,255,120,0.15);
+  border-color: rgba(168,255,120,0.6);
+}
+
+.shell-max-label {
+  font-size: 9px;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ===== 電子配置表記 ===== */
+.config-display {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.config-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.config-notation {
+  font-family: 'Orbitron', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  min-height: 26px;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.config-notation .sub-id   { color: var(--accent); }
+.config-notation .sub-cnt  { vertical-align: super; font-size: 10px; color: var(--electron); }
+
+.config-reading {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  min-height: 20px;
+}
+
+/* ===== 上級者向け（折りたたみ） ===== */
+.advanced-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.advanced-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.advanced-header:hover { background: var(--surface2); }
+
+.advanced-header-left {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.advanced-arrow {
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.3s;
+}
+
+.advanced-arrow.open { transform: rotate(180deg); }
+
+.advanced-body {
+  display: none;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.advanced-body.open { display: block; }
+
+.orbital-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
+.orbital-row { display: flex; align-items: center; gap: 8px; }
+
+.orbital-row-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.orbital-boxes { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.orb-box {
+  width: 40px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(78,120,180,0.1);
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  font-size: 13px;
+}
+
+.orb-box.half  { border-color: rgba(255,209,102,0.3); }
+.orb-box.full  { border-color: rgba(255,209,102,0.5); background: rgba(255,209,102,0.07); }
+.spin-up   { color: var(--electron); }
+.spin-down { color: #ff9800; }
+
+.ion-mode-section {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.ion-mode-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ion-mode-desc { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+
+.ion-charge-row { display: flex; align-items: center; gap: 10px; }
+
+.ion-charge-display { text-align: center; min-width: 44px; }
+
+.ion-charge-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px; font-weight: 900;
+  color: var(--accent); line-height: 1;
+}
+
+.ion-charge-label { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+.ion-note {
+  font-size: 11px; color: var(--electron);
+  margin-top: 8px; min-height: 16px; line-height: 1.6;
+}
+
+.hund-note {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.energy-level-section {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.energy-level-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.energy-level-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.energy-level-chart {
+  position: relative;
+  padding: 6px 0 6px 50px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+}
+
+.energy-axis-label {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.energy-arrow-up {
+  position: absolute;
+  left: 30px;
+  top: -2px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.energy-axis-line {
+  position: absolute;
+  left: 32px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to top, var(--accent), rgba(79,195,247,0.15));
+  border-radius: 1px;
+}
+
+.energy-level-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.el-orbital-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  width: 26px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.el-bar {
+  flex: 1;
+  height: 22px;
+  background: rgba(78,120,180,0.08);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  gap: 2px;
+  position: relative;
+}
+
+.el-bar.has-electrons {
+  background: rgba(255,209,102,0.08);
+  border-color: rgba(255,209,102,0.35);
+}
+
+.el-bar.full {
+  background: rgba(255,209,102,0.18);
+  border-color: rgba(255,209,102,0.55);
+}
+
+.el-orb-slot {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(7,9,15,0.4);
+  line-height: 1;
+  position: relative;
+}
+
+.el-arrow-up   { color: var(--electron); font-size: 9px; line-height: 1; }
+.el-arrow-down { color: #ff9800; font-size: 9px; line-height: 1; }
+
+.el-cap-label {
+  font-size: 9px;
+  color: var(--muted);
+  min-width: 32px;
+  flex-shrink: 0;
+  text-align: left;
+}
+
+/* ===== フィードバック ===== */
+.feedback-area {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  min-height: 50px;
+  line-height: 1.7;
+  color: var(--muted);
+  width: 100%;
+}
+
+.feedback-area.correct { border-color: rgba(105,240,174,0.4); color: var(--correct); background: rgba(105,240,174,0.05); }
+.feedback-area.wrong   { border-color: rgba(255,82,82,0.4);  color: var(--wrong);   background: rgba(255,82,82,0.05); }
+.feedback-area.info    { border-color: rgba(79,195,247,0.3); color: var(--accent);  background: rgba(79,195,247,0.05); }
+
+/* ===== ボタン ===== */
+.btn-row {
+  display: flex; gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.action-btn.primary { border-color: var(--accent); color: var(--accent); background: rgba(79,195,247,0.08); }
+.action-btn.primary:hover { background: rgba(79,195,247,0.18); }
+
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.fade-in { animation: fadeIn 0.2s ease forwards; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ELECTRON CONFIGURATION</h1>
+  <p>殻のボタンで電子を追加・削除しよう（Z=1〜36）</p>
+</header>
+
+<div class="app">
+
+  <!-- レベル選択モーダル -->
+  <div class="level-modal" id="levelModal">
+    <div class="level-modal-card">
+      <div class="level-modal-title">ようこそ！</div>
+      <div class="level-modal-desc">あなたのレベルを選んでください</div>
+      <div class="level-options">
+        <button class="level-option" onclick="selectLevel('beginner')">
+          <div class="level-icon">🌱</div>
+          <div class="level-name">初級</div>
+          <div class="level-hint">使い方ツアー付き</div>
+        </button>
+        <button class="level-option" onclick="selectLevel('intermediate')">
+          <div class="level-icon">📘</div>
+          <div class="level-name">中級</div>
+          <div class="level-hint">通常モード</div>
+        </button>
+        <button class="level-option" onclick="selectLevel('advanced')">
+          <div class="level-icon">⚡</div>
+          <div class="level-name">上級</div>
+          <div class="level-hint">5秒タイムアタック(全36問)</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- タイムアタック：スタート画面 -->
+  <div class="ta-modal" id="taStartModal">
+    <div class="ta-card">
+      <div class="ta-title">⚡ TIME ATTACK</div>
+      <div class="ta-subtitle">全36問・1問あたり5秒の電子配置チャレンジ</div>
+      <div class="ta-rules">
+        <span class="ta-rule-key">▸ 出題</span>：ランダムに元素が指定されます<br>
+        <span class="ta-rule-key">▸ 制限時間</span>：1問につき5秒<br>
+        <span class="ta-rule-key">▸ 操作</span>：殻ボタンで電子を配置 → 「✓ 確認」<br>
+        <span class="ta-rule-key">▸ 不正解 / 時間切れ</span>：次の問題に進みます<br>
+        <span class="ta-rule-key">▸ 前半20問</span>：H〜Ca から出題<br>
+        <span class="ta-rule-key">▸ 後半16問</span>：Sc〜Kr から出題
+      </div>
+      <div class="ta-action-row">
+        <button class="ta-btn" onclick="closeTaStart()">あとで</button>
+        <button class="ta-btn primary" onclick="startTimeAttack()">スタート</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- タイムアタック：HUD(画面上部固定) -->
+  <div class="ta-hud" id="taHud">
+    <div class="ta-hud-row">
+      <div class="ta-hud-progress">問題 <span class="ta-current" id="taQuestionNum">1</span> / 36</div>
+      <div class="ta-hud-score">正解 <span class="ta-correct" id="taScore">0</span></div>
+      <button class="ta-cancel-btn" onclick="cancelTimeAttack()">中止</button>
+    </div>
+    <div class="ta-timer-bar"><div class="ta-timer-fill" id="taTimerFill"></div></div>
+  </div>
+
+  <!-- タイムアタック：結果フラッシュ -->
+  <div class="ta-flash" id="taFlash"></div>
+
+  <!-- タイムアタック：結果画面 -->
+  <div class="ta-modal" id="taResultModal">
+    <div class="ta-card">
+      <div class="ta-title" id="taResultTitle">🎯 RESULT</div>
+      <div class="ta-subtitle" id="taResultSubtitle"></div>
+      <div class="ta-result-stats" id="taResultStats"></div>
+      <div class="ta-result-grid" id="taResultGrid"></div>
+      <div class="ta-action-row">
+        <button class="ta-btn" onclick="backToLevelSelect()">級選択に戻る</button>
+        <button class="ta-btn primary" onclick="restartTimeAttack()">もう一度</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- チュートリアル -->
+  <div class="tutorial-overlay" id="tutorialOverlay">
+    <div class="tutorial-spotlight" id="tutorialSpotlight"></div>
+    <div class="tutorial-tooltip" id="tutorialTooltip">
+      <div class="tutorial-step" id="tutorialStep"></div>
+      <div class="tutorial-title" id="tutorialTitle"></div>
+      <div class="tutorial-text" id="tutorialText"></div>
+      <div class="tutorial-actions">
+        <button class="tutorial-skip" onclick="endTutorial()">スキップ</button>
+        <button class="tutorial-next" onclick="nextTutorialStep()" id="tutorialNextBtn">次へ →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 元素選択 -->
+  <div class="element-scroll-wrap">
+    <div class="selector-label">▸ 元素を選択</div>
+    <div class="element-scroll" id="elementScroll"></div>
+    <div class="scroll-arrow left"  id="scrollArrowLeft">◀</div>
+    <div class="scroll-arrow right" id="scrollArrowRight">▶</div>
+  </div>
+
+  <div class="nucleus-display" style="display:none">
+    <div class="nucleus-badge" id="nucleusBadge">—</div>
+  </div>
+
+  <!-- ボーアモデル -->
+  <div class="bohr-area" id="bohrArea">
+    <div class="bohr-title-row">
+      <div class="bohr-title">▸ ボーアモデル</div>
+      <button class="title-btn" onclick="nextElement()">次へ →</button>
+    </div>
+
+    <div class="inline-element-badge" id="inlineElementBadge">
+      <span class="ieb-z" id="iebZ">—</span>
+      <span class="ieb-sym" id="iebSym">—</span>
+      <span class="ieb-name" id="iebName">元素を選択してください</span>
+    </div>
+
+    <div class="bohr-model" id="bohrModel">
+      <div class="nucleus-core" id="nucleusCore">?</div>
+      <div class="feedback-overlay" id="feedbackArea"></div>
+    </div>
+
+    <div class="shell-controls" id="shellControls"></div>
+
+    <div class="btn-row">
+      <button class="action-btn" onclick="clearElectrons()">↺ クリア</button>
+      <button class="action-btn" onclick="showHint()">💡 ヒント</button>
+      <button class="action-btn primary" id="confirmBtn" onclick="checkConfig()" onmousedown="event.preventDefault()">✓ 確認</button>
+    </div>
+  </div>
+
+  <div class="config-display">
+    <div class="config-title">▸ 電子配置の表記</div>
+    <div class="config-notation" id="configNotation">—</div>
+    <div class="config-reading"  id="configReading">元素を選んで電子を配置してください</div>
+  </div>
+
+  <div class="advanced-toggle">
+    <div class="advanced-header" id="advancedHeader" onclick="toggleAdvanced()">
+      <div class="advanced-header-left">▸ 上級者向け：軌道・スピン・イオン（タップで展開）</div>
+      <div class="advanced-arrow" id="advancedArrow">▼</div>
+    </div>
+    <div class="advanced-body" id="advancedBody">
+
+      <div class="ion-mode-section">
+        <div class="ion-mode-title">⚡ イオンの電子配置</div>
+        <div class="ion-mode-desc">電荷を変えて、イオン状態の電子配置を確認できます</div>
+        <div class="ion-charge-row">
+          <button class="ctrl-btn" onclick="changeIonCharge(-1)">−</button>
+          <div class="ion-charge-display">
+            <div class="ion-charge-val" id="ionChargeVal">0</div>
+            <div class="ion-charge-label">電荷</div>
+          </div>
+          <button class="ctrl-btn" onclick="changeIonCharge(1)">＋</button>
+          <button class="action-btn" style="margin-left:8px;font-size:11px;padding:6px 12px" onclick="resetIonCharge()">中性に戻す</button>
+        </div>
+        <div class="ion-note" id="ionNote"></div>
+      </div>
+
+      <div class="orbital-rows" id="orbitalRows"></div>
+      <div class="hund-note" id="hundNote"></div>
+
+      <div class="energy-level-section">
+        <div class="energy-level-title">📈 エネルギー準位図(aufbau順)</div>
+        <div class="energy-level-desc">電子はエネルギーの低い軌道から順に入る</div>
+        <div class="energy-level-chart" id="energyLevelChart"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== 元素データ =====
+const ELEMENTS = [
+  {z:1, sym:'H', name:'水素', c1:'#7eb8f7', c2:'#a8ff78'},
+  {z:2, sym:'He',name:'ヘリウム',c1:'#ffd166',c2:'#ff6b6b'},
+  {z:3, sym:'Li',name:'リチウム',c1:'#ff4d6d',c2:'#ffd166'},
+  {z:4, sym:'Be',name:'ベリリウム',c1:'#7eb8f7',c2:'#ffd166'},
+  {z:5, sym:'B', name:'ホウ素',c1:'#a8ff78',c2:'#7eb8f7'},
+  {z:6, sym:'C', name:'炭素',c1:'#7eb8f7',c2:'#a8ff78'},
+  {z:7, sym:'N', name:'窒素',c1:'#a8ff78',c2:'#ffd166'},
+  {z:8, sym:'O', name:'酸素',c1:'#ff4d6d',c2:'#7eb8f7'},
+  {z:9, sym:'F', name:'フッ素',c1:'#ffd166',c2:'#a8ff78'},
+  {z:10,sym:'Ne',name:'ネオン',c1:'#ff4d6d',c2:'#ffd166'},
+  {z:11,sym:'Na',name:'ナトリウム',c1:'#ff4d6d',c2:'#ffd166'},
+  {z:12,sym:'Mg',name:'マグネシウム',c1:'#7eb8f7',c2:'#a8ff78'},
+  {z:13,sym:'Al',name:'アルミニウム',c1:'#a8ff78',c2:'#7eb8f7'},
+  {z:14,sym:'Si',name:'ケイ素',c1:'#ffd166',c2:'#7eb8f7'},
+  {z:15,sym:'P', name:'リン',c1:'#ff4d6d',c2:'#a8ff78'},
+  {z:16,sym:'S', name:'硫黄',c1:'#ffd166',c2:'#ff4d6d'},
+  {z:17,sym:'Cl',name:'塩素',c1:'#a8ff78',c2:'#ffd166'},
+  {z:18,sym:'Ar',name:'アルゴン',c1:'#7eb8f7',c2:'#ffd166'},
+  {z:19,sym:'K', name:'カリウム',c1:'#ff4d6d',c2:'#ffd166'},
+  {z:20,sym:'Ca',name:'カルシウム',c1:'#7eb8f7',c2:'#a8ff78'},
+  {z:21,sym:'Sc',name:'スカンジウム',c1:'#7eb8f7',c2:'#a8ff78'},
+  {z:22,sym:'Ti',name:'チタン',c1:'#a8ff78',c2:'#7eb8f7'},
+  {z:23,sym:'V', name:'バナジウム',c1:'#ffd166',c2:'#ff4d6d'},
+  {z:24,sym:'Cr',name:'クロム',c1:'#7eb8f7',c2:'#ffd166'},
+  {z:25,sym:'Mn',name:'マンガン',c1:'#ff4d6d',c2:'#7eb8f7'},
+  {z:26,sym:'Fe',name:'鉄',c1:'#ff4d6d',c2:'#7eb8f7'},
+  {z:27,sym:'Co',name:'コバルト',c1:'#7eb8f7',c2:'#ff4d6d'},
+  {z:28,sym:'Ni',name:'ニッケル',c1:'#a8ff78',c2:'#ffd166'},
+  {z:29,sym:'Cu',name:'銅',c1:'#ffd166',c2:'#ff4d6d'},
+  {z:30,sym:'Zn',name:'亜鉛',c1:'#7eb8f7',c2:'#a8ff78'},
+  {z:31,sym:'Ga',name:'ガリウム',c1:'#ffd166',c2:'#7eb8f7'},
+  {z:32,sym:'Ge',name:'ゲルマニウム',c1:'#a8ff78',c2:'#ffd166'},
+  {z:33,sym:'As',name:'ヒ素',c1:'#ff4d6d',c2:'#a8ff78'},
+  {z:34,sym:'Se',name:'セレン',c1:'#ffd166',c2:'#ff4d6d'},
+  {z:35,sym:'Br',name:'臭素',c1:'#ff4d6d',c2:'#ffd166'},
+  {z:36,sym:'Kr',name:'クリプトン',c1:'#7eb8f7',c2:'#a8ff78'},
+];
+
+// ===== 元素記号のHTML生成 =====
+// 化学の手書き指導に合わせ、2文字目の小文字を視覚的に低くする。
+// 高校化学の標準的な目安として、
+//   ・アセンダーを持たない小文字(e, a, o, r, n, s, u, m, c, g, p, y, v, w, x, z)
+//     → 大文字の約半分の高さ (フォントサイズ65%)
+//   ・アセンダーを持つ小文字(l, b, d, h, k, t, f, i)
+//     → 大文字とほぼ同じ高さ (フォントサイズ100%、ただし字形自体が縦長)
+// 1文字目は大文字としてそのまま表示。
+const SHORT_LOWERS = new Set(['a','c','e','g','m','n','o','p','r','s','u','v','w','x','y','z']);
+
+function symbolHTML(sym) {
+  if (!sym || sym.length < 2) return sym || '';
+  const first = sym[0];
+  const second = sym[1];
+  const isShort = SHORT_LOWERS.has(second);
+  // 小さい文字は font-size を下げ、ベースラインを揃える
+  if (isShort) {
+    return `${first}<span style="font-size:0.65em;vertical-align:baseline;">${second}</span>`;
+  }
+  // l, b などのアセンダー文字はそのまま
+  return sym;
+}
+
+const SHELLS = [
+  { name:'K', label:'第1殻', max:2,  r:36,  subshells:['1s'] },
+  { name:'L', label:'第2殻', max:8,  r:68,  subshells:['2s','2p'] },
+  { name:'M', label:'第3殻', max:18, r:98,  subshells:['3s','3p','3d'] },
+  { name:'N', label:'第4殻', max:8,  r:108, subshells:['4s','4p'] },
+];
+
+const SUBSHELLS = [
+  {id:'1s',cap:2}, {id:'2s',cap:2}, {id:'2p',cap:6},
+  {id:'3s',cap:2}, {id:'3p',cap:6}, {id:'4s',cap:2},
+  {id:'3d',cap:10},{id:'4p',cap:6},
+];
+
+const SS_SHELL = {
+  '1s':0, '2s':1, '2p':1, '3s':2, '3p':2, '3d':2, '4s':3, '4p':3
+};
+
+const GROUND = {
+  1:{'1s':1}, 2:{'1s':2},
+  3:{'1s':2,'2s':1}, 4:{'1s':2,'2s':2},
+  5:{'1s':2,'2s':2,'2p':1}, 6:{'1s':2,'2s':2,'2p':2},
+  7:{'1s':2,'2s':2,'2p':3}, 8:{'1s':2,'2s':2,'2p':4},
+  9:{'1s':2,'2s':2,'2p':5}, 10:{'1s':2,'2s':2,'2p':6},
+  11:{'1s':2,'2s':2,'2p':6,'3s':1}, 12:{'1s':2,'2s':2,'2p':6,'3s':2},
+  13:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':1}, 14:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':2},
+  15:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':3}, 16:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':4},
+  17:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':5}, 18:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6},
+  19:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':1},
+  20:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2},
+  21:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':1},
+  22:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':2},
+  23:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':3},
+  24:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':1,'3d':5},
+  25:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':5},
+  26:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':6},
+  27:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':7},
+  28:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':8},
+  29:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':1,'3d':10},
+  30:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10},
+  31:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':1},
+  32:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':2},
+  33:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':3},
+  34:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':4},
+  35:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':5},
+  36:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':6},
+};
+
+let selectedZ = 0;
+let ionCharge = 0;
+let shellElectrons = [0, 0, 0, 0];
+
+function shellsToSubshells(shells) {
+  const result = {};
+  SUBSHELLS.forEach(ss => result[ss.id] = 0);
+  shells.forEach((count, si) => {
+    let rem = count;
+    const subs = SHELLS[si]?.subshells || [];
+    for (const ssId of subs) {
+      const ss = SUBSHELLS.find(s => s.id === ssId);
+      if (!ss) continue;
+      const n = Math.min(rem, ss.cap);
+      result[ssId] = n;
+      rem -= n;
+    }
+  });
+  return result;
+}
+
+function buildElementGrid() {
+  const scroll = document.getElementById('elementScroll');
+  ELEMENTS.forEach(el => {
+    const btn = document.createElement('button');
+    btn.className = 'el-btn';
+    btn.id = 'elbtn-' + el.z;
+    btn.innerHTML = `
+      <span class="el-z">${el.z}</span>
+      <span class="el-sym" style="background:linear-gradient(135deg,${el.c1},${el.c2});-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${symbolHTML(el.sym)}</span>
+      <span class="el-name">${el.name.length > 5 ? el.name.slice(0,4)+'…' : el.name}</span>
+    `;
+    btn.addEventListener('click', () => selectElement(el.z));
+    scroll.appendChild(btn);
+  });
+
+  const leftArr  = document.getElementById('scrollArrowLeft');
+  const rightArr = document.getElementById('scrollArrowRight');
+
+  function updateArrows() {
+    const maxScroll = scroll.scrollWidth - scroll.clientWidth;
+    leftArr.classList.toggle('show', scroll.scrollLeft > 4);
+    rightArr.classList.toggle('show', scroll.scrollLeft < maxScroll - 4);
+  }
+
+  scroll.addEventListener('scroll', updateArrows);
+  window.addEventListener('resize', updateArrows);
+  setTimeout(updateArrows, 100);
+}
+
+// ===== 確認ボタン（=ボーアモデル領域の最下部）を画面下端に寄せるスクロール =====
+// ボーアモデル領域全体が画面内に収まるよう、bohr-areaの下端を画面下端から少しのマージンを残して合わせる。
+// これにより、上の元素記号バッジ・ボーアモデル・殻コントロール・確認ボタンが
+// すべて画面内に同時に見える状態になる。
+function scrollBohrAreaIntoView() {
+  const bohrArea = document.getElementById('bohrArea');
+  if (!bohrArea) return;
+  const rect = bohrArea.getBoundingClientRect();
+  const viewportH = window.innerHeight;
+  const areaH = rect.height;
+  const bottomMargin = 16; // 確認ボタンの下にこの余白を残す
+
+  let targetTop;
+  if (areaH + bottomMargin >= viewportH) {
+    // 画面に収まらない大きさ → 上端を合わせる
+    targetTop = rect.top + window.scrollY - 12;
+  } else {
+    // 画面に収まる → 下端を画面下端マージンに合わせる
+    // bohrArea の下端を viewportH - bottomMargin に置きたい
+    // → bohrArea の上端を window 上での y = (viewportH - bottomMargin) - areaH に置きたい
+    const desiredTopInViewport = (viewportH - bottomMargin) - areaH;
+    targetTop = rect.top + window.scrollY - desiredTopInViewport;
+  }
+
+  window.scrollTo({ top: targetTop, behavior: 'smooth' });
+}
+
+// fromNext: nextElement経由(順送り)で呼ばれた時はtrue。この場合は画面スクロールしない
+// (ユーザーは順番に解いているので画面はその場で固定するのが自然)
+function selectElement(z, fromNext) {
+  selectedZ = z;
+  ionCharge = 0;
+  shellElectrons = [0, 0, 0, 0];
+
+  // チュートリアル中：元素が切り替わるタイミングで、前の元素向けの
+  // スポットライト・pulse強調を一旦リセットする。
+  // (これをやらないと、前の元素で正解後に表示された「確認ボタンへの誘導」が
+  //  新しい元素の画面にも残ってしまう)
+  if (tutorialActive) {
+    document.querySelectorAll('.tutorial-target, .guide-highlight, .tutorial-pulse-btn').forEach(el => {
+      el.classList.remove('tutorial-target', 'guide-highlight', 'tutorial-pulse-btn');
+    });
+    const spot = document.getElementById('tutorialSpotlight');
+    if (spot) spot.classList.remove('visible', 'show-pointer', 'hide-frame');
+    const tip = document.getElementById('tutorialTooltip');
+    if (tip) tip.classList.remove('visible', 'faded');
+
+    // イントロ(初級チュートリアル)は水素(Z=1)専用のスクリプト。
+    // Z>=2 に進んだ時点でガイドモードに切り替え、ロックも必ず解除する。
+    // (STEP 9 から確認ボタンの「次へ →」経由で進むと tutorialInIntro が true のまま
+    //  selectElement に到達するため、ここで明示的に切り替えないとロックが残る)
+    if (z !== 1) {
+      tutorialInIntro = false;
+    }
+    // ガイドモード or イントロ外 → ロック解除(イントロ中の水素画面以外は常に自由操作)
+    if (!tutorialInIntro) {
+      document.body.classList.remove('tutorial-locked');
+      document.querySelectorAll('.tutorial-allowed').forEach(el => el.classList.remove('tutorial-allowed'));
+    }
+  }
+
+  document.querySelectorAll('.el-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('elbtn-' + z)?.classList.add('active');
+
+  const el = ELEMENTS.find(e => e.z === z);
+  updateNucleusBadge(el);
+  document.getElementById('nucleusCore').textContent = `${z}+`;
+  document.getElementById('ionChargeVal').textContent = '0';
+  document.getElementById('ionNote').textContent = '';
+
+  const ieb = document.getElementById('inlineElementBadge');
+  ieb.style.borderColor = el.c1 + '66';
+  ieb.style.background = `linear-gradient(135deg, ${el.c1}11, ${el.c2}11)`;
+  ieb.style.setProperty('--ieb-grad', `linear-gradient(135deg, ${el.c1}, ${el.c2})`);
+  document.getElementById('iebZ').textContent = `Z=${z}`;
+  document.getElementById('iebSym').innerHTML = symbolHTML(el.sym);
+  document.getElementById('iebSym').style.background = `linear-gradient(135deg, ${el.c1}, ${el.c2})`;
+  document.getElementById('iebSym').style.webkitBackgroundClip = 'text';
+  document.getElementById('iebSym').style.webkitTextFillColor = 'transparent';
+  document.getElementById('iebName').textContent = el.name;
+
+  const maxShell = z <= 36 && z >= 19 ? 4 : 3;
+
+  buildBohrModel(maxShell);
+  buildShellControls(maxShell);
+  buildOrbitalPanel(z);
+  renderAll();
+  closeFeedback();
+  setConfirmAsNext(false);
+
+  // 元素選択リスト側からユーザーが直接タップした場合のみ、ボーアモデル領域を画面内に持ってくる。
+  // nextElement経由(=「次へ」で順送り)の場合は、ユーザーは既にボーアモデルを見て操作しているので
+  // スクロールせずその場で更新する。元素選択リストに戻りたければユーザーが自分で上にスワイプする。
+  if (!fromNext) {
+    requestAnimationFrame(() => {
+      scrollBohrAreaIntoView();
+    });
+  }
+
+  if (z === 1) notifyTutorial('select-H');
+}
+
+function updateNucleusBadge(el) {
+  if (!el) return;
+  const badge = document.getElementById('nucleusBadge');
+  badge.style.borderColor = el.c1 + '88';
+  badge.innerHTML = `
+    <span class="nb-sym" style="background:linear-gradient(135deg,${el.c1},${el.c2});-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${symbolHTML(el.sym)}</span>
+  `;
+}
+
+function changeIonCharge(delta) {
+  if (selectedZ === 0) {
+    setFeedback('まず元素を選んでください', 'info'); return;
+  }
+  const el = ELEMENTS.find(e => e.z === selectedZ);
+  const newCharge = ionCharge + delta;
+
+  if (newCharge > selectedZ - 1) {
+    setFeedback(`陽イオンの価数は最大 ${selectedZ-1}+ です`, 'wrong'); return;
+  }
+  if (newCharge < -4) {
+    setFeedback('陰イオンの価数は最大 4− までです', 'wrong'); return;
+  }
+
+  ionCharge = newCharge;
+  document.getElementById('ionChargeVal').textContent =
+    ionCharge === 0 ? '0' : ionCharge > 0 ? '+'+ionCharge : ionCharge;
+
+  updateNucleusBadge(el);
+  applyIonConfig();
+}
+
+function resetIonCharge() {
+  ionCharge = 0;
+  document.getElementById('ionChargeVal').textContent = '0';
+  document.getElementById('ionNote').textContent = '';
+  if (selectedZ > 0) {
+    const el = ELEMENTS.find(e => e.z === selectedZ);
+    updateNucleusBadge(el);
+    clearElectrons();
+  }
+}
+
+function applyIonConfig() {
+  if (selectedZ === 0) return;
+  const el = ELEMENTS.find(e => e.z === selectedZ);
+  const targetE = selectedZ - ionCharge;
+  const correct = GROUND[selectedZ] || {};
+
+  const subConfig = {};
+  SUBSHELLS.forEach(ss => subConfig[ss.id] = correct[ss.id] || 0);
+
+  if (ionCharge > 0) {
+    let toRemove = ionCharge;
+    const reversed = [...SUBSHELLS].reverse();
+    for (const ss of reversed) {
+      if (toRemove <= 0) break;
+      const take = Math.min(subConfig[ss.id], toRemove);
+      subConfig[ss.id] -= take;
+      toRemove -= take;
+    }
+  } else if (ionCharge < 0) {
+    let toAdd = Math.abs(ionCharge);
+    for (const ss of SUBSHELLS) {
+      if (toAdd <= 0) break;
+      const add = Math.min(ss.cap - subConfig[ss.id], toAdd);
+      subConfig[ss.id] += add;
+      toAdd -= add;
+    }
+  }
+
+  shellElectrons = [0, 0, 0, 0];
+  SUBSHELLS.forEach(ss => {
+    const si = SS_SHELL[ss.id];
+    shellElectrons[si] = (shellElectrons[si] || 0) + subConfig[ss.id];
+  });
+
+  renderAll();
+
+  const noteEl = document.getElementById('ionNote');
+  const chargeStr = ionCharge > 0
+    ? (ionCharge === 1 ? '+' : ionCharge + '+')
+    : (ionCharge === -1 ? '−' : Math.abs(ionCharge) + '−');
+
+  if (ionCharge !== 0) {
+    noteEl.textContent = `${el.sym}${chargeStr}：電子${targetE}個の配置を表示しました`;
+    setFeedback(`${el.sym}${chargeStr}(${ionCharge > 0 ? '陽' : '陰'}イオン)の電子配置です。電子数は${targetE}個。`, 'info');
+  } else {
+    noteEl.textContent = '';
+  }
+}
+
+function buildBohrModel(maxShell) {
+  const model = document.getElementById('bohrModel');
+  model.querySelectorAll('.orbit-ring, .e-dot, .shell-label').forEach(el => el.remove());
+  const cx = 110, cy = 110;
+
+  for (let si = 0; si < maxShell; si++) {
+    const sh = SHELLS[si];
+    const ring = document.createElement('div');
+    ring.className = 'orbit-ring';
+    ring.id = 'ring-' + si;
+    const d = sh.r * 2;
+    ring.style.cssText = `width:${d}px;height:${d}px;border:1.5px dashed rgba(79,195,247,0.2);`;
+    model.appendChild(ring);
+
+    const lbl = document.createElement('span');
+    lbl.className = 'shell-label';
+    lbl.textContent = sh.name;
+    lbl.style.left = (cx + sh.r - 4) + 'px';
+    lbl.style.top  = (cy - sh.r + 1) + 'px';
+    model.appendChild(lbl);
+  }
+}
+
+function buildShellControls(maxShell) {
+  const ctrl = document.getElementById('shellControls');
+  ctrl.innerHTML = '';
+
+  for (let si = 0; si < maxShell; si++) {
+    const sh = SHELLS[si];
+    const card = document.createElement('div');
+    card.className = 'shell-ctrl-row';
+
+    // M殻だけは初期ラベルを「閉殻 8」にする(高校化学の主要族はM殻=8で閉殻と教える)。
+    // 閉殻ボタンの実際のラベルは renderShellCounts 内で電子数に応じて動的に更新する。
+    const initialClosedLabel = (si === 2) ? '閉殻 8' : `閉殻 ${sh.max}`;
+
+    // ＋/−ボタンは廃止。ホイールスワイプで電子数を増減する。
+    card.innerHTML = `
+      <div class="shell-ctrl-name">${sh.name}殻</div>
+      <div class="shell-ctrl-sublabel">最大${sh.max}個</div>
+      <div class="shell-count" id="sc-${si}" data-shell="${si}">
+        <div class="wheel-reel" id="reel-${si}"></div>
+      </div>
+      <button class="shell-closed-btn" id="closed-btn-${si}" data-shell="${si}">${initialClosedLabel}</button>
+    `;
+
+    card.querySelector('.shell-closed-btn').addEventListener('click', () => {
+      fillShell(si);
+    });
+
+    ctrl.appendChild(card);
+
+    // ホイールピッカーのジェスチャー処理を仕込む
+    attachWheelPicker(card.querySelector('.shell-count'), si);
+  }
+
+  // 初回リール描画
+  for (let si = 0; si < maxShell; si++) {
+    renderWheel(si);
+  }
+}
+
+// ===== ホイールピッカー =====
+// 上下スワイプで電子数を増減する操作系。iOSの「ホイールピッカー」風の体験。
+// 中央ハイライト(40px)に現在値、上に+1値、下に-1値を薄く表示。
+// 1電子あたりの移動量 = 40px。指を動かすたびに数値がコミットされる。
+const WHEEL_ITEM_H = 40;
+
+function renderWheel(shellIdx) {
+  const reel = document.getElementById('reel-' + shellIdx);
+  if (!reel) return;
+  const cur = shellElectrons[shellIdx];
+  const sh = SHELLS[shellIdx];
+  const max = sh.max;
+
+  // 中央(cur)を起点に、上下に2つずつ(計5要素)並べる。
+  // 範囲外(0未満や maxを超える)は空のスロットとして表示。
+  // リール構造: [cur-2] [cur-1] [cur] [cur+1] [cur+2]
+  // 中央要素を画面中央に揃える : リール全高 = 5 * 40 = 200px、その中央 = 100px
+  // コンテナ側で `top: 50%` を指定済みなので、リールを translateY(-100px) で
+  // リール中央がコンテナ中央に来るようにする。
+  const items = [];
+  for (let d = -2; d <= 2; d++) {
+    const v = cur + d;
+    const inRange = v >= 0 && v <= max;
+    const isCenter = d === 0;
+    const cls = 'wheel-num' + (isCenter ? '' : ' dim');
+    items.push(`<div class="${cls}">${inRange ? v : ''}</div>`);
+  }
+  reel.innerHTML = items.join('');
+
+  // リール全高 = 5行 × 40px = 200px、その中央(=cur位置)が
+  // コンテナの中央(top: 50%)に来るよう、-100pxずらす
+  reel.style.transform = `translateY(-100px)`;
+  reel.style.transition = 'none';
+}
+
+// ホイールにポインタイベントを取り付ける
+function attachWheelPicker(picker, shellIdx) {
+  let startY = 0;        // ドラッグ開始のページY座標
+  let startCount = 0;    // ドラッグ開始時の電子数
+  let lastCommitCount = 0;// 直前にコミット(=更新)した電子数
+  let dragging = false;
+
+  const reel = picker.querySelector('.wheel-reel');
+  // リール基準位置(5要素並べた時の中央が表示中央に来る位置) = -100px
+  const REEL_BASE = -100;
+
+  const onPointerDown = (ev) => {
+    if (selectedZ === 0) return;
+    ev.preventDefault();
+    dragging = true;
+    startY = ev.clientY;
+    startCount = shellElectrons[shellIdx];
+    lastCommitCount = startCount;
+    picker.classList.add('dragging');
+    picker.setPointerCapture(ev.pointerId);
+    if (reel) reel.style.transition = 'none';
+  };
+
+  const onPointerMove = (ev) => {
+    if (!dragging) return;
+    ev.preventDefault();
+    const sh = SHELLS[shellIdx];
+    const dy = ev.clientY - startY;
+    // 上スワイプ(dy<0)で増、下スワイプ(dy>0)で減
+    const delta = Math.round(-dy / WHEEL_ITEM_H);
+    let target = startCount + delta;
+    target = Math.max(0, Math.min(sh.max, target));
+
+    if (target !== lastCommitCount) {
+      // 電子数が変わったら状態をコミットして全体再描画
+      shellElectrons[shellIdx] = target;
+      lastCommitCount = target;
+      setConfirmAsNext(false);
+      renderAll();
+      // ハプティック(対応端末のみ)
+      if (navigator.vibrate) navigator.vibrate(8);
+      // ガイドモード進行
+      if (shellIdx === 0 && target === 1) notifyTutorial('add-K-1');
+      notifyTutorial('shell-change');
+    } else {
+      // 数値はまだ変わらないが、リールを途中位置に少しズラして「動いてる感」を出す
+      if (reel) {
+        // 0〜±20px の範囲内で揺らす(40pxまでいくと次の値に変わる)
+        const partial = (-dy) % WHEEL_ITEM_H;
+        reel.style.transform = `translateY(${REEL_BASE + partial}px)`;
+      }
+    }
+  };
+
+  const onPointerUp = (ev) => {
+    if (!dragging) return;
+    dragging = false;
+    picker.classList.remove('dragging');
+    try { picker.releasePointerCapture(ev.pointerId); } catch(e) {}
+    // 終了時にリールを中央位置に戻す(アニメーション)
+    if (reel) {
+      reel.style.transition = 'transform 0.18s ease-out';
+      reel.style.transform = `translateY(${REEL_BASE}px)`;
+    }
+  };
+
+  picker.addEventListener('pointerdown', onPointerDown);
+  picker.addEventListener('pointermove', onPointerMove);
+  picker.addEventListener('pointerup', onPointerUp);
+  picker.addEventListener('pointercancel', onPointerUp);
+}
+
+// 閉殻ボタンの動作。
+// ・K殻・L殻・N殻：押すたびに最大値(2/8/8)まで一発で埋める
+// ・M殻：高校化学の指導順序に合わせ、2段階トグル
+//   - 0〜7個のとき押すと8個(主要族のオクテット)に
+//   - 8個のとき押すと18個(遷移元素以降の完全閉殻)に
+//   - 9個以上のとき押すと0にリセット(またループ再開)
+function fillShell(shellIdx) {
+  if (selectedZ === 0) return;
+  const sh = SHELLS[shellIdx];
+  const cur = shellElectrons[shellIdx];
+
+  if (shellIdx === 2) {
+    // M殻：2段階トグル
+    if (cur < 8)       shellElectrons[shellIdx] = 8;
+    else if (cur === 8) shellElectrons[shellIdx] = 18;
+    else                shellElectrons[shellIdx] = 0;
+  } else {
+    // 他の殻：最大まで一発
+    shellElectrons[shellIdx] = sh.max;
+  }
+  renderAll();
+}
+
+// M殻の閉殻ボタンの表示ラベルを、現在の電子数に応じて動的に更新する。
+// renderAll() から呼ばれる。
+function updateClosedBtnLabels() {
+  const mBtn = document.getElementById('closed-btn-2');
+  if (!mBtn) return; // M殻コントロールがない元素(Z<=2など)はスキップ
+  const m = shellElectrons[2];
+  if (m < 8)        mBtn.textContent = '閉殻 8';
+  else if (m === 8) mBtn.textContent = '閉殻 18';
+  else              mBtn.textContent = 'クリア';
+}
+
+function changeShellElectron(shellIdx, delta) {
+  if (selectedZ === 0) return;
+  const sh = SHELLS[shellIdx];
+  const cur = shellElectrons[shellIdx];
+  const next = cur + delta;
+
+  if (next < 0)        return;
+  if (next > sh.max)   return;
+
+  shellElectrons[shellIdx] = next;
+  setConfirmAsNext(false);
+  renderAll();
+
+  if (shellIdx === 0 && delta === 1 && next === 1) {
+    notifyTutorial('add-K-1');
+  }
+  notifyTutorial('shell-change');
+}
+
+function renderAll() {
+  renderBohrElectrons();
+  renderShellCounts();
+  updateClosedBtnLabels();
+  renderConfigNotation();
+  renderOrbitalBoxes();
+  renderEnergyLevel();
+  checkConfigSilent();
+}
+
+function renderBohrElectrons() {
+  const model = document.getElementById('bohrModel');
+  model.querySelectorAll('.e-dot').forEach(d => d.remove());
+  const cx = 110, cy = 110;
+
+  // 電子式(ルイス・ドット)的な配置順：
+  // 1個→上、2個→上下、3個→上下左、4個→上下左右(十字)、
+  // 5個→十字+右上、6個→十字+右上左上、7個→+左下、8個→+右下(8方位完成)
+  // 9個以上は従来通り均等割(リング上に等間隔)
+  // 角度(rad)。x=cos(angle), y=sin(angle), 0=右, -π/2=上(画面座標)
+  const DIRS_8 = [
+    -Math.PI / 2,            // 上
+     Math.PI / 2,            // 下
+     Math.PI,                // 左
+     0,                      // 右
+    -Math.PI / 4,            // 右上
+    -3 * Math.PI / 4,        // 左上
+     3 * Math.PI / 4,        // 左下
+     Math.PI / 4,            // 右下
+  ];
+
+  function anglesFor(count) {
+    if (count <= 8) {
+      return DIRS_8.slice(0, count);
+    }
+    // 9個以上：均等割(従来通り、12時から時計回り)
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      result.push((i / count) * Math.PI * 2 - Math.PI / 2);
+    }
+    return result;
+  }
+
+  shellElectrons.forEach((count, si) => {
+    if (count === 0 || si >= SHELLS.length) return;
+    const r = SHELLS[si].r;
+
+    const ring = document.getElementById('ring-' + si);
+    if (ring) {
+      ring.style.borderColor = count > 0 ? 'rgba(255,209,102,0.35)' : 'rgba(79,195,247,0.2)';
+      ring.style.borderStyle = count > 0 ? 'solid' : 'dashed';
+    }
+
+    const angles = anglesFor(count);
+    for (let i = 0; i < count; i++) {
+      const angle = angles[i];
+      const dot = document.createElement('div');
+      dot.className = 'e-dot';
+      dot.style.left = (cx + Math.cos(angle) * r) + 'px';
+      dot.style.top  = (cy + Math.sin(angle) * r) + 'px';
+      model.appendChild(dot);
+    }
+  });
+
+  shellElectrons.forEach((count, si) => {
+    if (count === 0) {
+      const ring = document.getElementById('ring-' + si);
+      if (ring) {
+        ring.style.borderColor = 'rgba(79,195,247,0.2)';
+        ring.style.borderStyle = 'dashed';
+      }
+    }
+  });
+}
+
+function renderShellCounts() {
+  // ホイールピッカー化したので、各殻のホイールを再描画する
+  shellElectrons.forEach((count, si) => {
+    const reel = document.getElementById('reel-' + si);
+    if (reel) renderWheel(si);
+  });
+}
+
+function renderConfigNotation() {
+  const subConfig = shellsToSubshells(shellElectrons);
+  const total = shellElectrons.reduce((a, b) => a + b, 0);
+
+  if (total === 0) {
+    document.getElementById('configNotation').innerHTML = '—';
+    document.getElementById('configReading').textContent = '電子を配置してください';
+    return;
+  }
+
+  let html = '', reading = '';
+  SUBSHELLS.forEach(ss => {
+    const n = subConfig[ss.id];
+    if (n > 0) {
+      html += `<span class="sub-id">${ss.id}</span><span class="sub-cnt">${n}</span> `;
+      const typeNames = {s:'エス', p:'ピー', d:'ディー'};
+      const t = ss.id.slice(-1);
+      reading += `${ss.id.slice(0,-1)}${typeNames[t]||t}に${n}個、`;
+    }
+  });
+
+  document.getElementById('configNotation').innerHTML = html.trim() || '—';
+  document.getElementById('configReading').textContent =
+    reading ? `読み方：${reading.slice(0,-1)}` : '';
+}
+
+function buildOrbitalPanel(z) {
+  const rows = document.getElementById('orbitalRows');
+  rows.innerHTML = '';
+
+  const g = GROUND[z] || {};
+  const needed = SUBSHELLS.filter(ss => (g[ss.id] || 0) > 0);
+
+  needed.forEach(ss => {
+    const row = document.createElement('div');
+    row.className = 'orbital-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'orbital-row-label';
+    lbl.textContent = ss.id;
+    row.appendChild(lbl);
+
+    const boxes = document.createElement('div');
+    boxes.className = 'orbital-boxes';
+    boxes.id = 'advbox-' + ss.id;
+
+    const nBoxes = ss.cap / 2;
+    for (let i = 0; i < nBoxes; i++) {
+      const box = document.createElement('div');
+      box.className = 'orb-box';
+      box.innerHTML = `<span class="spin-up"></span><span class="spin-down"></span>`;
+      boxes.appendChild(box);
+    }
+
+    row.appendChild(boxes);
+    rows.appendChild(row);
+  });
+
+  document.getElementById('hundNote').innerHTML =
+    `<b style="color:var(--accent)">フントの規則</b>：同じエネルギーの軌道には、まず1個ずつ(↑)配置し、全部に1個入ったら2個目(↓)を入れる。<br>` +
+    `<b style="color:var(--accent)">パウリの排他原理</b>：1つの軌道には最大2個(↑↓、スピンの向きが逆)まで。`;
+}
+
+function renderOrbitalBoxes() {
+  const subConfig = shellsToSubshells(shellElectrons);
+
+  SUBSHELLS.forEach(ss => {
+    const container = document.getElementById('advbox-' + ss.id);
+    if (!container) return;
+    const nBoxes = ss.cap / 2;
+    const cur = subConfig[ss.id] || 0;
+    const upCount   = Math.min(cur, nBoxes);
+    const downCount = Math.max(0, cur - nBoxes);
+
+    container.querySelectorAll('.orb-box').forEach((box, idx) => {
+      const up   = box.querySelector('.spin-up');
+      const down = box.querySelector('.spin-down');
+      up.textContent   = idx < upCount   ? '↑' : '';
+      down.textContent = idx < downCount ? '↓' : '';
+      box.className = 'orb-box' +
+        (idx < downCount ? ' full' : idx < upCount ? ' half' : '');
+    });
+  });
+}
+
+function renderEnergyLevel() {
+  const chart = document.getElementById('energyLevelChart');
+  if (!chart) return;
+
+  const subConfig = shellsToSubshells(shellElectrons);
+
+  chart.innerHTML = `
+    <span class="energy-axis-label">エネルギー</span>
+    <span class="energy-arrow-up">↑</span>
+    <div class="energy-axis-line"></div>
+  `;
+
+  SUBSHELLS.forEach(ss => {
+    const cur = subConfig[ss.id] || 0;
+    const nBoxes = ss.cap / 2;
+
+    const row = document.createElement('div');
+    row.className = 'energy-level-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'el-orbital-label';
+    lbl.textContent = ss.id;
+    row.appendChild(lbl);
+
+    const bar = document.createElement('div');
+    bar.className = 'el-bar' +
+      (cur === ss.cap ? ' full' : cur > 0 ? ' has-electrons' : '');
+
+    const upCount   = Math.min(cur, nBoxes);
+    const downCount = Math.max(0, cur - nBoxes);
+    for (let i = 0; i < nBoxes; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'el-orb-slot';
+      let html = '';
+      if (i < upCount)   html += '<span class="el-arrow-up">↑</span>';
+      if (i < downCount) html += '<span class="el-arrow-down">↓</span>';
+      slot.innerHTML = html;
+      bar.appendChild(slot);
+    }
+
+    row.appendChild(bar);
+
+    const cap = document.createElement('div');
+    cap.className = 'el-cap-label';
+    cap.textContent = `${cur}/${ss.cap}`;
+    row.appendChild(cap);
+
+    chart.appendChild(row);
+  });
+}
+
+function checkConfigSilent() {}
+
+function checkConfig() {
+  if (selectedZ === 0) { setFeedback('元素を選んでください', 'info'); return; }
+  const total = shellElectrons.reduce((a,b)=>a+b,0);
+  const el = ELEMENTS.find(e => e.z === selectedZ);
+
+  // タイムアタック中の判定処理：
+  // 0個でも判定対象(=不正解扱い)。残り時間内なら何度でも押せるが、
+  // 「数は合っているが配置が違う」も含めて allCorrect で判定する。
+  // 通常フィードバック(オーバーレイ)は出さず、handleTaCheckで結果フラッシュに任せる。
+  if (taActive) {
+    const correct = GROUND[selectedZ] || {};
+    const subConfig = shellsToSubshells(shellElectrons);
+    const allCorrect = total === selectedZ && SUBSHELLS.every(ss =>
+      (subConfig[ss.id]||0) === (correct[ss.id]||0));
+    // 0個のままだと「配置してから」を出したいところだが、タイムアタックでは
+    // 単に「不正解」として次へ進める。練習モードと違って即フィードバック型。
+    if (total === 0) {
+      // 配置ゼロでの確認押下は単純に「不正解」として扱わず、何もせず無視する方が
+      // 親切(間違えてタップした可能性)。何度でも再挑戦できるよう、ロック解除のみで戻る。
+      return;
+    }
+    handleTaCheck(allCorrect);
+    return;
+  }
+
+  if (total === 0) {
+    setFeedback('電子を配置してから確認してください。', 'info');
+    return;
+  }
+
+  if (total !== selectedZ) {
+    const diff = selectedZ - total;
+    setFeedback(
+      `電子が${diff > 0 ? diff+'個少ない' : Math.abs(diff)+'個多い'}です。${el.name}の電子数は${selectedZ}個です。`,
+      'wrong'
+    );
+    return;
+  }
+
+  const correct = GROUND[selectedZ] || {};
+  const subConfig = shellsToSubshells(shellElectrons);
+  const allCorrect = SUBSHELLS.every(ss =>
+    (subConfig[ss.id]||0) === (correct[ss.id]||0));
+
+  if (allCorrect) {
+    setFeedback(`✓ 正解！${el.name}の電子配置が完成しました。`, 'correct');
+    setConfirmAsNext(true);
+    notifyTutorial('check');
+    if (tutorialActive && !tutorialInIntro) {
+      setTimeout(() => {
+        const confirmBtn = document.getElementById('confirmBtn');
+        if (confirmBtn) confirmBtn.classList.add('tutorial-pulse-btn');
+        applyTutorialStep({
+          selector: '.bohr-model',
+          title: '正解！次の元素へ',
+          text: `${el.name}の電子配置は完成です。ボタンが「次へ →」に変わりました。これを押して次の元素に進みましょう。`,
+          waitFor: 'next-element'
+        }, `${el.sym}(Z=${selectedZ})`);
+      }, 600);
+    }
+  } else {
+    setFeedbackWithAnswer(
+      `電子の数は合っていますが、殻への割り当てが違います。`,
+      'wrong', el
+    );
+  }
+}
+
+function setConfirmAsNext(isNext) {
+  const btn = document.getElementById('confirmBtn');
+  if (!btn) return;
+  if (isNext) {
+    btn.textContent = '次へ →';
+    btn.onclick = () => { nextElement(); setConfirmAsNext(false); };
+    btn.classList.add('confirm-next');
+  } else {
+    btn.textContent = '✓ 確認';
+    btn.onclick = checkConfig;
+    btn.classList.remove('confirm-next');
+  }
+}
+
+function setFeedback(msg, type = '') {
+  const area = document.getElementById('feedbackArea');
+  area.className = 'feedback-overlay show' + (type ? ' ' + type : '');
+  area.innerHTML = `
+    <div class="feedback-overlay-msg">${msg}</div>
+    <div class="feedback-overlay-hint">タップで閉じる</div>
+  `;
+  area.onclick = closeFeedback;
+}
+
+function setFeedbackWithAnswer(msg, type, el) {
+  const area = document.getElementById('feedbackArea');
+  area.className = 'feedback-overlay show' + (type ? ' ' + type : '');
+  area.innerHTML = `
+    <div class="feedback-overlay-msg">${msg}</div>
+    <button class="action-btn primary" style="font-size:11px;padding:6px 14px" onclick="event.stopPropagation();autoFill();closeFeedback()">
+      📖 模範解答を見る
+    </button>
+    <div class="feedback-overlay-hint">外側タップで閉じる</div>
+  `;
+  area.onclick = closeFeedback;
+}
+
+function closeFeedback() {
+  const area = document.getElementById('feedbackArea');
+  area.classList.remove('show');
+}
+
+function showHint() {
+  if (selectedZ === 0) { setFeedback('まず元素を選んでください', 'info'); return; }
+  const el = ELEMENTS.find(e => e.z === selectedZ);
+  const correct = GROUND[selectedZ] || {};
+
+  const correctShells = [0,0,0,0];
+  SUBSHELLS.forEach(ss => {
+    const si = SS_SHELL[ss.id];
+    correctShells[si] = (correctShells[si]||0) + (correct[ss.id]||0);
+  });
+
+  const shellNames = ['K','L','M','N'];
+  const hintParts = correctShells
+    .map((n, i) => n > 0 ? `${shellNames[i]}殻に${n}個` : null)
+    .filter(Boolean);
+
+  setFeedback(`💡 ヒント：${el.name}は ${hintParts.join('、')} 入ります。`, 'info');
+}
+
+function autoFill() {
+  if (selectedZ === 0) { setFeedback('元素を選んでください', 'info'); return; }
+  const correct = GROUND[selectedZ] || {};
+  shellElectrons = [0,0,0,0];
+  SUBSHELLS.forEach(ss => {
+    const si = SS_SHELL[ss.id];
+    shellElectrons[si] = (shellElectrons[si]||0) + (correct[ss.id]||0);
+  });
+  renderAll();
+  const el = ELEMENTS.find(e => e.z === selectedZ);
+  setFeedback(`${el.name}の模範解答を表示しました。`, 'info');
+}
+
+function nextElement() {
+  if (selectedZ === 0) {
+    selectElement(1); return;
+  }
+  const nextZ = selectedZ < 36 ? selectedZ + 1 : 1;
+
+  // 初級チュートリアルの卒業ライン：Z=11(Na)までで終了。
+  // Z=12(Mg)に進むタイミングでチュートリアルを終わらせ、自由操作の中級モードへ。
+  // (Naまでで Kは2・Lは8・Mに1個 という3殻すべてが登場するため、
+  //  電子配置の基本パターンが一通り体験できる)
+  const willGraduate = tutorialActive && nextZ === 12;
+
+  // fromNext=true：画面の縦スクロールはしない(その場で更新)
+  selectElement(nextZ, true);
+  // 元素選択リスト側の横スクロールも、リストが画面に見えている時だけ更新する
+  // (画面外にあるリストを動かしても見えないし、副作用で縦スクロールが起きる端末もあるため)
+  const btn = document.getElementById('elbtn-' + nextZ);
+  if (btn) {
+    const listRect = document.querySelector('.element-scroll-wrap')?.getBoundingClientRect();
+    const listVisible = listRect && listRect.bottom > 0 && listRect.top < window.innerHeight;
+    if (listVisible) {
+      btn.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+    }
+  }
+
+  if (willGraduate) {
+    // チュートリアル卒業：誘導表示を全部消したうえで、達成感のある完了メッセージを出す
+    graduateTutorial();
+    return;
+  }
+
+  if (tutorialActive && !tutorialInIntro) {
+    tutorialCurrentZ = nextZ;
+    // 短い遅延で新しいガイドを表示(DOM更新を待つだけの最小遅延)
+    setTimeout(showCurrentTutorialStep, 150);
+  }
+}
+
+// 初級チュートリアルの卒業処理。
+// Na(Z=11)まで終え、Mg(Z=12)に進むタイミングで呼ばれる。
+function graduateTutorial() {
+  // チュートリアル状態を完全終了
+  tutorialActive = false;
+  tutorialInIntro = false;
+
+  // すべての誘導表示・ロック・強調をクリア
+  document.getElementById('tutorialOverlay').classList.remove('active', 'guide-mode');
+  const spot = document.getElementById('tutorialSpotlight');
+  if (spot) spot.classList.remove('visible', 'guide-mode', 'show-pointer', 'hide-frame');
+  document.getElementById('tutorialTooltip').classList.remove('visible', 'faded');
+  document.querySelectorAll('.tutorial-target, .guide-highlight, .tutorial-pulse-btn, .tutorial-allowed').forEach(el => {
+    el.classList.remove('tutorial-target', 'guide-highlight', 'tutorial-pulse-btn', 'tutorial-allowed');
+  });
+  document.body.classList.remove('tutorial-locked');
+
+  // 達成感のある完了メッセージをフィードバックオーバーレイで表示
+  const area = document.getElementById('feedbackArea');
+  area.className = 'feedback-overlay show correct';
+  area.innerHTML = `
+    <div class="feedback-overlay-msg">🎓 チュートリアル完了！</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-top:4px;padding:0 8px;">
+      水素〜ナトリウムまでの<br>電子配置を体験しました。<br>
+      ここから先は自由に操作できます。<br>
+      気になる元素を選んで挑戦してみてください。
+    </div>
+    <div class="feedback-overlay-hint">タップで閉じる</div>
+  `;
+  area.onclick = closeFeedback;
+}
+
+function clearElectrons() {
+  shellElectrons = [0, 0, 0, 0];
+  if (selectedZ > 0) renderAll();
+  closeFeedback();
+  setConfirmAsNext(false);
+}
+
+function toggleAdvanced() {
+  const body  = document.getElementById('advancedBody');
+  const arrow = document.getElementById('advancedArrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+
+buildElementGrid();
+buildBohrModel(3);
+buildShellControls(3);
+
+function selectLevel(level) {
+  document.getElementById('levelModal').classList.add('hidden');
+  if (level === 'beginner') {
+    startTutorial();
+  } else if (level === 'advanced') {
+    // 上級：タイムアタックのスタート画面を表示
+    document.getElementById('taStartModal').classList.add('visible');
+  }
+}
+
+// ===== タイムアタックモード =====
+// 全36問・1問5秒の電子配置チャレンジ。
+// 前半20問(Q1〜Q20)：Z=1〜20(H〜Ca)からランダム重複なしで出題
+// 後半16問(Q21〜Q36)：Z=21〜36(Sc〜Kr)からランダム重複なしで出題
+// 各問: 元素が指定 → ユーザーが配置 → 確認ボタンで判定 → 結果フラッシュ → 次の問題
+// 時間切れ: 自動で次の問題へ
+const TA_TIME_LIMIT_MS = 5000;
+let taActive = false;
+let taOrder = [];          // 出題順の元素番号Z配列(36個)
+let taIndex = 0;           // 現在何問目(0始まり)
+let taScore = 0;
+let taResults = [];        // 各問の結果 {z, status:'correct'|'wrong'|'timeout', timeMs}
+let taQuestionStart = 0;   // 現在の問題の開始時刻
+let taTimerHandle = null;  // requestAnimationFrame ハンドル
+let taAdvanceLock = false; // 結果フラッシュ表示中の二重遷移防止
+
+function shuffleArray(arr) {
+  // Fisher-Yates シャッフル
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function closeTaStart() {
+  // スタートモーダルから「あとで」を選んだ場合は、級選択モーダルに戻す
+  document.getElementById('taStartModal').classList.remove('visible');
+  document.getElementById('levelModal').classList.remove('hidden');
+}
+
+function startTimeAttack() {
+  document.getElementById('taStartModal').classList.remove('visible');
+
+  // 出題順を生成：前半(1〜20)と後半(21〜36)を別々にシャッフル
+  const firstHalf  = shuffleArray(Array.from({length: 20}, (_, i) => i + 1));   // 1..20
+  const secondHalf = shuffleArray(Array.from({length: 16}, (_, i) => i + 21));  // 21..36
+  taOrder = firstHalf.concat(secondHalf);
+
+  taActive = true;
+  taIndex = 0;
+  taScore = 0;
+  taResults = [];
+  taAdvanceLock = false;
+
+  document.getElementById('taHud').classList.add('visible');
+  document.body.classList.add('ta-active');
+  document.documentElement.classList.add('ta-locked');
+  // 一旦先頭にスクロール(ロック前)
+  window.scrollTo(0, 0);
+
+  presentTaQuestion();
+}
+
+function presentTaQuestion() {
+  if (!taActive) return;
+  if (taIndex >= taOrder.length) {
+    finishTimeAttack();
+    return;
+  }
+  const z = taOrder[taIndex];
+
+  // 元素を表示(fromNext=true で縦スクロールを抑制 = 解答中は画面を動かさない)
+  selectElement(z, true);
+
+  // 第1問のみ、画面先頭(HUDの下からボーアモデル領域)が見える位置にスクロール。
+  // 解答中は画面が動かないが、開始時に正しい位置に合わせておく必要がある。
+  // 元素選択リストは body.ta-active で非表示になっているので、
+  // ボーアモデルが画面上部寄りに表示される。
+  if (taIndex === 0) {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // HUD更新
+  document.getElementById('taQuestionNum').textContent = String(taIndex + 1);
+  document.getElementById('taScore').textContent = String(taScore);
+
+  // タイマー開始
+  taQuestionStart = performance.now();
+  taAdvanceLock = false;
+  startTaTimerLoop();
+}
+
+function startTaTimerLoop() {
+  cancelTaTimerLoop();
+  const fill = document.getElementById('taTimerFill');
+  const step = () => {
+    if (!taActive || taAdvanceLock) return;
+    const elapsed = performance.now() - taQuestionStart;
+    const remaining = Math.max(0, TA_TIME_LIMIT_MS - elapsed);
+    const ratio = remaining / TA_TIME_LIMIT_MS;
+    // 右側に向かって減るバー(残量を緑→黄→赤のグラデで)
+    fill.style.right = (100 - ratio * 100) + '%';
+    // 残り1秒以下で点滅警告
+    if (remaining < 1000) {
+      fill.classList.add('warn');
+    } else {
+      fill.classList.remove('warn');
+    }
+    if (remaining <= 0) {
+      handleTaTimeout();
+      return;
+    }
+    taTimerHandle = requestAnimationFrame(step);
+  };
+  taTimerHandle = requestAnimationFrame(step);
+}
+
+function cancelTaTimerLoop() {
+  if (taTimerHandle != null) {
+    cancelAnimationFrame(taTimerHandle);
+    taTimerHandle = null;
+  }
+}
+
+function handleTaTimeout() {
+  if (!taActive || taAdvanceLock) return;
+  taAdvanceLock = true;
+  cancelTaTimerLoop();
+  const z = taOrder[taIndex];
+  taResults.push({ z, status: 'timeout', timeMs: TA_TIME_LIMIT_MS });
+  showTaFlash('TIME UP', 'timeout');
+  setTimeout(() => {
+    taIndex++;
+    presentTaQuestion();
+  }, 900);
+}
+
+// 確認ボタン押下時にタイムアタックモードなら判定処理に介入する
+// (既存の checkConfig からこの関数を呼び出すよう、後続の差し替えで対応)
+function handleTaCheck(isCorrect) {
+  if (!taActive || taAdvanceLock) return;
+  taAdvanceLock = true;
+  cancelTaTimerLoop();
+  const z = taOrder[taIndex];
+  const elapsed = performance.now() - taQuestionStart;
+  if (isCorrect) {
+    taScore++;
+    taResults.push({ z, status: 'correct', timeMs: elapsed });
+    document.getElementById('taScore').textContent = String(taScore);
+    showTaFlash('正解', 'correct');
+  } else {
+    taResults.push({ z, status: 'wrong', timeMs: elapsed });
+    showTaFlash('不正解', 'wrong');
+  }
+  setTimeout(() => {
+    taIndex++;
+    presentTaQuestion();
+  }, 900);
+}
+
+function showTaFlash(text, type) {
+  const flash = document.getElementById('taFlash');
+  flash.textContent = text;
+  flash.className = 'ta-flash ' + type;
+  // 強制リフロー後にshowを付ける
+  void flash.offsetWidth;
+  flash.classList.add('show');
+  setTimeout(() => flash.classList.remove('show'), 700);
+}
+
+function cancelTimeAttack() {
+  // confirm() がClaude.ai埋め込みなどでブロックされる場合があるため、
+  // HTML製の確認モーダルを使う。中止後はそれまでの結果を見せた上で、
+  // 結果画面の「閉じる」で級選択画面に戻る。
+  showTaCancelConfirm();
+}
+
+// 中止確認モーダルを動的に表示
+function showTaCancelConfirm() {
+  // 既存のモーダルがあれば消す(連打対策)
+  const existing = document.getElementById('taCancelConfirmModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'ta-modal visible';
+  modal.id = 'taCancelConfirmModal';
+  modal.innerHTML = `
+    <div class="ta-card" style="max-width:320px">
+      <div class="ta-title" style="font-size:16px">中止しますか？</div>
+      <div class="ta-subtitle">
+        ${taIndex}問終了時点までの結果を表示します。<br>
+        本当に中止しますか？
+      </div>
+      <div class="ta-action-row">
+        <button class="ta-btn" id="taCancelNo">続ける</button>
+        <button class="ta-btn primary" id="taCancelYes">中止して結果へ</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  document.getElementById('taCancelNo').addEventListener('click', () => {
+    modal.remove();
+    // タイマー再開：継続できるよう、ロックを解除しタイマーループを再開
+    // ただし、確認モーダル表示中もタイマーは止めていなかった場合は何もしない。
+    // ここでは念のため再開しておく。
+    if (taActive && !taAdvanceLock) {
+      // 一時停止していた場合の再開(現在の実装では止めていないので不要だが、保険)
+      if (!taTimerHandle) startTaTimerLoop();
+    }
+  });
+
+  document.getElementById('taCancelYes').addEventListener('click', () => {
+    modal.remove();
+    // 結果画面へ：途中の状態でも、これまでのtaResultsを使ってfinishを呼ぶ
+    // finishTimeAttack は taResults.length 件分を集計するので、途中中止でもOK
+    finishTimeAttack(true);  // isCanceled=true
+  });
+}
+
+function endTimeAttack() {
+  taActive = false;
+  cancelTaTimerLoop();
+  document.getElementById('taHud').classList.remove('visible');
+  document.body.classList.remove('ta-active');
+  document.documentElement.classList.remove('ta-locked');
+  document.getElementById('taFlash').classList.remove('show');
+}
+
+function finishTimeAttack(isCanceled) {
+  // タイマー停止＆HUD非表示
+  taActive = false;
+  cancelTaTimerLoop();
+  document.getElementById('taHud').classList.remove('visible');
+  document.body.classList.remove('ta-active');
+  document.documentElement.classList.remove('ta-locked');
+  document.getElementById('taFlash').classList.remove('show');
+
+  // 結果集計
+  const total = taResults.length;
+  const correct = taResults.filter(r => r.status === 'correct').length;
+  const wrong = taResults.filter(r => r.status === 'wrong').length;
+  const timeout = taResults.filter(r => r.status === 'timeout').length;
+  const correctTimes = taResults.filter(r => r.status === 'correct').map(r => r.timeMs);
+  const avgMs = correctTimes.length > 0
+    ? correctTimes.reduce((a, b) => a + b, 0) / correctTimes.length
+    : 0;
+
+  // タイトル：中止/完走で出し分け
+  let title = '🎯 RESULT';
+  let subtitle = '';
+  if (isCanceled) {
+    title = '⏸ 中止しました';
+    subtitle = total > 0
+      ? `${total}問の結果を表示しています。`
+      : '解答した問題がないので結果はありません。';
+  } else {
+    // 完走時：スコアに応じてバリエーション
+    const rate = total > 0 ? correct / total : 0;
+    if (rate === 1)        { title = '🏆 PERFECT!';   subtitle = '全問正解！見事です。'; }
+    else if (rate >= 0.85) { title = '⭐ EXCELLENT';  subtitle = '非常に高い正答率です。'; }
+    else if (rate >= 0.6)  { title = '👍 GOOD';       subtitle = '健闘しました。あと一歩。'; }
+    else if (rate >= 0.3)  { title = '📘 KEEP GOING'; subtitle = '繰り返し練習で覚えていきましょう。'; }
+    else                   { title = '🌱 START HERE'; subtitle = '中級モードで配置を学んでから再挑戦！'; }
+  }
+
+  document.getElementById('taResultTitle').textContent = title;
+  document.getElementById('taResultSubtitle').textContent = subtitle;
+
+  // 統計表示
+  const stats = document.getElementById('taResultStats');
+  stats.innerHTML = `
+    <div class="ta-stat">
+      <div class="ta-stat-val correct">${correct}</div>
+      <div class="ta-stat-label">正解</div>
+    </div>
+    <div class="ta-stat">
+      <div class="ta-stat-val wrong">${wrong + timeout}</div>
+      <div class="ta-stat-label">ミス</div>
+    </div>
+    <div class="ta-stat">
+      <div class="ta-stat-val">${avgMs > 0 ? (avgMs / 1000).toFixed(1) + 's' : '—'}</div>
+      <div class="ta-stat-label">平均回答</div>
+    </div>
+  `;
+
+  // 結果グリッド：各問の結果を元素記号付きで表示
+  // 中止の場合は解答した分のみ表示(taResultsに入っている件数)
+  const grid = document.getElementById('taResultGrid');
+  grid.innerHTML = '';
+  taResults.forEach((r) => {
+    const el = ELEMENTS.find(e => e.z === r.z);
+    const cell = document.createElement('div');
+    cell.className = 'ta-result-cell ' + r.status;
+    cell.innerHTML = `
+      <span class="ta-cell-z">${r.z}</span>
+      <span>${symbolHTML(el.sym)}</span>
+    `;
+    grid.appendChild(cell);
+  });
+
+  // 結果モーダル表示
+  document.getElementById('taResultModal').classList.add('visible');
+}
+
+function closeTaResult() {
+  document.getElementById('taResultModal').classList.remove('visible');
+  endTimeAttack();
+}
+
+// 結果画面から級選択画面に戻る。
+// 結果モーダルを閉じ、状態を完全リセットして、レベル選択モーダルを再表示する。
+function backToLevelSelect() {
+  document.getElementById('taResultModal').classList.remove('visible');
+  endTimeAttack();
+  // ボーアモデルや殻コントロールも初期状態に戻す
+  // (タイムアタックで最後に表示されていた元素がそのまま残っているため)
+  selectedZ = 0;
+  shellElectrons = [0, 0, 0, 0];
+  document.querySelectorAll('.el-btn').forEach(b => b.classList.remove('active'));
+  // 初期表示のためボーアモデル(K-M殻)と殻コントロールを再構築
+  buildBohrModel(3);
+  buildShellControls(3);
+  // ボーアモデル中心の表示をリセット
+  const core = document.getElementById('nucleusCore');
+  if (core) core.textContent = '?';
+  // インラインバッジを「元素を選択してください」状態に戻す
+  document.getElementById('iebZ').textContent = '—';
+  document.getElementById('iebSym').innerHTML = '—';
+  document.getElementById('iebName').textContent = '元素を選択してください';
+  // 確認ボタンを「✓ 確認」表示に戻す
+  setConfirmAsNext(false);
+  // フィードバックオーバーレイを閉じる
+  closeFeedback();
+  // 級選択モーダルを再表示
+  document.getElementById('levelModal').classList.remove('hidden');
+}
+
+function restartTimeAttack() {
+  document.getElementById('taResultModal').classList.remove('visible');
+  startTimeAttack();
+}
+
+// ===== チュートリアル =====
+let tutorialActive = false;
+let tutorialInIntro = true;
+let tutorialIntroStep = 0;
+let tutorialCurrentZ = 1;
+let tipCurrentWaitFor = null;
+let tipFadeTimer = null;
+let tipRevealTimer = null;
+let lastActivityTime = Date.now();
+
+function watchInactivity() {
+  if (!tutorialActive) return;
+  const tip = document.getElementById('tutorialTooltip');
+  if (!tip.classList.contains('visible')) return;
+
+  const elapsed = Date.now() - lastActivityTime;
+  if (elapsed >= 5000 && tip.classList.contains('faded')) {
+    tip.classList.remove('faded');
+    clearTimeout(tipFadeTimer);
+    tipFadeTimer = setTimeout(() => {
+      tip.classList.add('faded');
+    }, 2500);
+    lastActivityTime = Date.now();
+  }
+}
+
+setInterval(watchInactivity, 1000);
+
+['click', 'touchstart', 'pointerdown'].forEach(ev => {
+  document.addEventListener(ev, (e) => {
+    lastActivityTime = Date.now();
+    if (!tutorialActive) return;
+    const tip = document.getElementById('tutorialTooltip');
+    if (tip.contains(e.target)) return;
+    if (tipCurrentWaitFor && tipCurrentWaitFor !== 'next' && tipCurrentWaitFor !== 'next-element') {
+      clearTimeout(tipFadeTimer);
+      tip.classList.add('faded');
+    }
+  }, true);
+});
+
+const TUTORIAL_INTRO_STEPS = [
+  {
+    selector: '#elbtn-1',
+    title: 'まず水素を選ぼう',
+    text: 'リストの一番左にある「H(水素)」をタップしてください。',
+    waitFor: 'select-H',
+    allow: ['#elbtn-1']
+  },
+  {
+    selector: '.bohr-model',
+    title: 'これが原子核です',
+    text: '中心の赤い丸が水素の原子核(陽子1個=1+)。',
+    waitFor: 'next',
+    allow: []
+  },
+  {
+    selector: '#ring-0',
+    title: 'これがK殻',
+    text: '原子核の一番内側にある点線の輪が「K殻」。電子が最大2個まで入ります。',
+    waitFor: 'next',
+    allow: []
+  },
+  {
+    selector: '#ring-1',
+    title: '次はL殻',
+    text: 'K殻の外側にあるのが「L殻」。最大8個の電子が入ります。',
+    waitFor: 'next',
+    allow: []
+  },
+  {
+    selector: '#ring-2',
+    title: 'さらにM殻',
+    text: 'L殻のさらに外側が「M殻」。最大18個の電子が入ります。電子は内側の殻から順に入ります。',
+    waitFor: 'next',
+    allow: []
+  },
+  {
+    selector: '.shell-ctrl-row:nth-child(1) .shell-count',
+    title: 'K殻に電子を入れよう',
+    text: '水素は電子1個。K殻のスロットを上に1段スワイプしてください。数字が0→1になり、モデルに電子(黄色の点)が現れます。',
+    waitFor: 'add-K-1',
+    allow: ['.shell-ctrl-row:nth-child(1) .shell-count']
+  },
+  {
+    selector: '.bohr-model',
+    title: '電子が入りました',
+    text: 'K殻に黄色い電子が1個追加されました。これで水素の電子配置は完成です。',
+    waitFor: 'next',
+    allow: []
+  },
+  {
+    selector: '#confirmBtn',
+    title: '正解か確かめよう',
+    text: '下にある「✓ 確認」ボタンを押して、配置が正しいか確認してみましょう。',
+    waitFor: 'check',
+    allow: ['#confirmBtn']
+  },
+  {
+    selector: '#confirmBtn',
+    title: '正解！次の元素へ',
+    text: 'ボタンが「次へ →」に変わりました。これを押すとヘリウム(Z=2)に進みます。',
+    waitFor: 'next-element',
+    // タイトル行の「次へ →」ボタン と 確認ボタン(=「次へ →」に変わっている) の両方を許可
+    allow: ['#confirmBtn', '.title-btn']
+  },
+];
+
+function startTutorial() {
+  tutorialActive = true;
+  tutorialInIntro = true;
+  tutorialIntroStep = 0;
+  tutorialCurrentZ = 1;
+  document.getElementById('tutorialOverlay').classList.add('active');
+  showCurrentTutorialStep();
+}
+
+function showCurrentTutorialStep() {
+  if (tutorialInIntro) {
+    const step = TUTORIAL_INTRO_STEPS[tutorialIntroStep];
+    if (!step) {
+      tutorialInIntro = false;
+      // ガイドモード(He以降)に入る時は、ロックを解除して自由操作に戻す
+      applyTutorialLock(null);
+      showGuideStep();
+      return;
+    }
+    // イントロ中：ステップの allow に応じてボタンをロック
+    applyTutorialLock(step.allow);
+    applyTutorialStep(step, `STEP ${tutorialIntroStep + 1} / ${TUTORIAL_INTRO_STEPS.length}`);
+  } else {
+    // ガイドモードはロックなし(状態を見て柔軟に誘導するため、ユーザーの自由な操作で復旧可能)
+    applyTutorialLock(null);
+    showGuideStep();
+  }
+}
+
+// allowList: 操作を許可するセレクタの配列。nullを渡すとロック解除。
+// 該当する要素に .tutorial-allowed クラスを付け、body に .tutorial-locked を付ける。
+// CSS側で .tutorial-locked のもとでは .tutorial-allowed 以外のボタンが無効化される。
+function applyTutorialLock(allowList) {
+  // 既存のtutorial-allowedをクリア
+  document.querySelectorAll('.tutorial-allowed').forEach(el => el.classList.remove('tutorial-allowed'));
+
+  if (allowList === null) {
+    document.body.classList.remove('tutorial-locked');
+    return;
+  }
+
+  document.body.classList.add('tutorial-locked');
+  allowList.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => el.classList.add('tutorial-allowed'));
+  });
+}
+
+function showGuideStep() {
+  if (!tutorialActive) return;
+  const z = selectedZ || tutorialCurrentZ;
+  const el = ELEMENTS.find(e => e.z === z);
+  if (!el) return;
+  const correct = GROUND[z] || {};
+
+  const correctShells = [0,0,0,0];
+  SUBSHELLS.forEach(ss => {
+    const si = SS_SHELL[ss.id];
+    correctShells[si] = (correctShells[si]||0) + (correct[ss.id]||0);
+  });
+
+  const currentShells = shellElectrons.slice();
+
+  document.querySelectorAll('.tutorial-pulse-btn').forEach(el => el.classList.remove('tutorial-pulse-btn'));
+
+  for (let i = 0; i < correctShells.length; i++) {
+    if (currentShells[i] < correctShells[i]) {
+      const shellName = ['K','L','M','N'][i];
+      const need = correctShells[i] - currentShells[i];
+      const ringSelector = `#ring-${i}`;
+      const ringExists = document.querySelector(ringSelector);
+      const slot = document.querySelector(`.shell-ctrl-row:nth-child(${i+1}) .shell-count`);
+      if (slot) slot.classList.add('tutorial-pulse-btn');
+
+      applyTutorialStep({
+        selector: ringExists ? ringSelector : '.bohr-model',
+        title: `${shellName}殻に電子を追加`,
+        text: `${el.name}(${el.sym})の${shellName}殻には${correctShells[i]}個入ります。「${shellName}殻」のスロットを上にあと${need}段スワイプしてください。`,
+        waitFor: 'shell-change'
+      }, `${el.sym}(Z=${z})`);
+      return;
+    }
+    if (currentShells[i] > correctShells[i]) {
+      const shellName = ['K','L','M','N'][i];
+      const over = currentShells[i] - correctShells[i];
+      const ringSelector = `#ring-${i}`;
+      const ringExists = document.querySelector(ringSelector);
+      const slot = document.querySelector(`.shell-ctrl-row:nth-child(${i+1}) .shell-count`);
+      if (slot) slot.classList.add('tutorial-pulse-btn');
+
+      applyTutorialStep({
+        selector: ringExists ? ringSelector : '.bohr-model',
+        title: `${shellName}殻を減らそう`,
+        text: `${shellName}殻が${over}個多いです。「${shellName}殻」のスロットを下にスワイプして減らしてください。`,
+        waitFor: 'shell-change'
+      }, `${el.sym}(Z=${z})`);
+      return;
+    }
+  }
+
+  const confirmBtn = document.getElementById('confirmBtn');
+  if (confirmBtn) confirmBtn.classList.add('tutorial-pulse-btn');
+
+  applyTutorialStep({
+    selector: '.bohr-model',
+    title: '配置完成！',
+    text: `${el.name}の電子配置ができました。下の「✓ 確認」を押して合っているか確かめましょう。`,
+    waitFor: 'check'
+  }, `${el.sym}(Z=${z})`);
+}
+
+function applyTutorialStep(step, label) {
+  // 古いハイライト類をクリア(pulse強調は呼び出し側で個別管理するためここでは触らない)
+  document.querySelectorAll('.tutorial-target, .guide-highlight').forEach(el => {
+    el.classList.remove('tutorial-target', 'guide-highlight');
+  });
+
+  // ガイドモード(He以降)に入っているなら、たとえ前のステップのロックが残っていても
+  // ここで必ず解除する。ガイドモードはユーザーの自由操作からのリカバリーを前提にした仕組みなので、
+  // ボタンが効かない状態に陥らせてはいけない。
+  if (!tutorialInIntro) {
+    document.body.classList.remove('tutorial-locked');
+    document.querySelectorAll('.tutorial-allowed').forEach(el => el.classList.remove('tutorial-allowed'));
+  }
+
+  const target = document.querySelector(step.selector);
+  if (!target) { setTimeout(() => applyTutorialStep(step, label), 200); return; }
+
+  const isGuideMode = !tutorialInIntro;
+  const overlay = document.getElementById('tutorialOverlay');
+  const spot = document.getElementById('tutorialSpotlight');
+
+  if (isGuideMode) {
+    overlay.classList.add('guide-mode');
+    spot.classList.add('guide-mode');
+    target.classList.add('guide-highlight');
+  } else {
+    overlay.classList.remove('guide-mode');
+    spot.classList.remove('guide-mode');
+    target.classList.add('tutorial-target');
+  }
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const positionElements = () => {
+    if (!isGuideMode) {
+      const rect = target.getBoundingClientRect();
+      const PAD = 14;
+      spot.style.left   = (rect.left - PAD) + 'px';
+      spot.style.top    = (rect.top - PAD) + 'px';
+      spot.style.width  = (rect.width + PAD*2) + 'px';
+      spot.style.height = (rect.height + PAD*2) + 'px';
+      spot.classList.add('visible');
+    }
+
+    const tip = document.getElementById('tutorialTooltip');
+    document.getElementById('tutorialStep').textContent = label;
+    document.getElementById('tutorialTitle').textContent = step.title;
+    document.getElementById('tutorialText').textContent  = step.text;
+
+    const nextBtn = document.getElementById('tutorialNextBtn');
+    if (step.waitFor === 'next' || step.waitFor === 'next-element') {
+      nextBtn.textContent = '次へ →';
+      nextBtn.style.display = 'inline-block';
+    } else {
+      nextBtn.style.display = 'none';
+    }
+
+    if (!isGuideMode &&
+        (step.waitFor === 'select-H' || step.waitFor === 'add-K-1' ||
+         step.waitFor === 'shell-change' || step.waitFor === 'check')) {
+      spot.classList.add('show-pointer');
+    } else {
+      spot.classList.remove('show-pointer');
+    }
+
+    if (target.classList.contains('orbit-ring') && !isGuideMode) {
+      spot.classList.add('hide-frame');
+    } else {
+      spot.classList.remove('hide-frame');
+    }
+
+    // ツールチップ位置決め：
+    // ・step.tipPos が明示指定されていればそれを優先(操作ボタンを邪魔したくない場面で使う)
+    // ・waitFor が下部ボタン操作を要求するもの(shell-change, check, next-element)の場合は
+    //   ツールチップを必ず上部に置く。画面下のボタンを覆い隠すと「タップしてください」と
+    //   言われても押せない事態になるため。
+    // ・上記以外の説明ステップ(next待ち)では、対象の位置に応じて上下を切り替える基本ルール
+    const rectAbs = target.getBoundingClientRect();
+    const targetCenterY = rectAbs.top + rectAbs.height / 2;
+    const isTargetUpper = targetCenterY < window.innerHeight * 0.4;
+    const wantsBottomBtn = step.waitFor === 'shell-change'
+                        || step.waitFor === 'check'
+                        || step.waitFor === 'next-element'
+                        || step.waitFor === 'add-K-1';
+    const forceTop = step.tipPos === 'top' || wantsBottomBtn;
+    const placeTipAtBottom = !forceTop && isTargetUpper;
+
+    tip.style.left = '50%';
+    tip.style.right = 'auto';
+    tip.style.transform = 'translateX(-50%)';
+    tip.style.width = 'calc(100% - 32px)';
+    tip.style.maxWidth = '340px';
+    if (placeTipAtBottom) {
+      tip.style.bottom = '24px';
+      tip.style.top = 'auto';
+    } else {
+      tip.style.top = '20px';
+      tip.style.bottom = 'auto';
+    }
+    tip.classList.add('visible');
+    tip.classList.remove('faded');
+
+    clearTimeout(tipFadeTimer);
+    clearTimeout(tipRevealTimer);
+    if (step.waitFor !== 'next' && step.waitFor !== 'next-element') {
+      tipFadeTimer = setTimeout(() => {
+        tip.classList.add('faded');
+      }, 2000);
+    }
+
+    tipCurrentWaitFor = step.waitFor;
+  };
+
+  setTimeout(positionElements, 500);
+  setTimeout(positionElements, 900);
+}
+
+function notifyTutorial(action) {
+  if (!tutorialActive) return;
+
+  if (tutorialInIntro) {
+    const step = TUTORIAL_INTRO_STEPS[tutorialIntroStep];
+    if (!step) return;
+    if (step.waitFor === action) {
+      tutorialIntroStep++;
+      showCurrentTutorialStep();
+    }
+  } else {
+    setTimeout(showCurrentTutorialStep, 100);
+  }
+}
+
+function nextTutorialStep() {
+  if (tutorialInIntro) {
+    const step = TUTORIAL_INTRO_STEPS[tutorialIntroStep];
+    if (!step) return;
+    if (step.waitFor === 'next') {
+      tutorialIntroStep++;
+      showCurrentTutorialStep();
+    } else if (step.waitFor === 'next-element') {
+      tutorialInIntro = false;
+      tutorialCurrentZ = 2;
+      nextElement();
+    }
+  } else {
+    // ガイドモードでも、ツールチップの「次へ」が押されたら次の元素に進む。
+    // checkConfig 正解時の `applyTutorialStep({ waitFor: 'next-element' })` がこのケース。
+    if (tipCurrentWaitFor === 'next-element') {
+      nextElement();
+    }
+  }
+}
+
+function endTutorial() {
+  tutorialActive = false;
+  document.getElementById('tutorialOverlay').classList.remove('active', 'guide-mode');
+  const spot = document.getElementById('tutorialSpotlight');
+  spot.classList.remove('visible', 'guide-mode', 'show-pointer', 'hide-frame');
+  document.getElementById('tutorialTooltip').classList.remove('visible', 'faded');
+  document.querySelectorAll('.tutorial-target, .guide-highlight, .tutorial-pulse-btn, .tutorial-allowed').forEach(el => {
+    el.classList.remove('tutorial-target', 'guide-highlight', 'tutorial-pulse-btn', 'tutorial-allowed');
+  });
+  // スキップ・終了時はロック解除して通常操作に戻す
+  document.body.classList.remove('tutorial-locked');
+}
+
+</script>
+</body>
+</html>
